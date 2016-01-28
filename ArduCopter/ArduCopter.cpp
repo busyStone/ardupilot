@@ -108,7 +108,7 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] PROGMEM = {
     { SCHED_TASK(run_nav_updates),       8,    100 },
     { SCHED_TASK(update_thr_average),    4,     90 },
     { SCHED_TASK(three_hz_loop),       133,     75 },
-    { SCHED_TASK(compass_accumulate),    8,    100 },
+    { SCHED_TASK(compass_accumulate),    4,    100 },
     { SCHED_TASK(barometer_accumulate),  8,     90 },
 #if FRAME_CONFIG == HELI_FRAME
     { SCHED_TASK(check_dynamic_flight),  8,     75 },
@@ -129,7 +129,7 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] PROGMEM = {
     { SCHED_TASK(perf_update),        4000,     75 },
     { SCHED_TASK(read_receiver_rssi),   40,     75 },
     { SCHED_TASK(rpm_update),           40,    200 },
-    { SCHED_TASK(compass_cal_update),   100,   100 },
+    { SCHED_TASK(compass_cal_update),    4,   100 },
 #if FRSKY_TELEM_ENABLED == ENABLED
     { SCHED_TASK(frsky_telemetry_send), 80,     75 },
 #endif
