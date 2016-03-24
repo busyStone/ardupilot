@@ -90,3 +90,6 @@ status.txt
 tags
 test.ArduCopter/*
 Thumbs.db
+Tools/autotest/test.ArduCopter
+.tags
+.tags_sorted_by_file
