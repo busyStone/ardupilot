@@ -7,3 +7,8 @@ cache:
 
 before_install:
   - export PATH=$(echo ${PATH} | awk -v RS=':' -v ORS=':' '/clang/ {next} {print}' | sed 's/:*$//')
+  - APMDIR=$(pwd) && pushd .. && $APMDIR/Tools/scripts/configure-ci.sh && . ~/.profile && popd
+
+install: true
+
+script: true
