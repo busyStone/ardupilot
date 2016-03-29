@@ -1,9 +1,9 @@
 language: cpp
 sudo: required
 
-cache:
-  directories:
-    - $HOME/opt
+# cache:
+#   directories:
+#     - $HOME/opt
 
 branches:
   except:
