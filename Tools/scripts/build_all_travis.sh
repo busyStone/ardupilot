@@ -20,7 +20,7 @@ declare -A build_concurrency
 declare -A build_extra_clean
 
 build_platforms=(  ["ArduPlane"]="apm2 navio sitl linux px4-v2"
-                   ["ArduCopter"]="navio sitl linux px4-v2"
+                   ["ArduCopter"]="navio sitl linux px4-v2 px4-v3"
                    ["APMrover2"]="apm2 navio sitl linux px4-v2"
                    ["AntennaTracker"]="apm2 navio sitl linux px4-v2"
                    ["Tools/Replay"]="linux")
@@ -29,9 +29,10 @@ build_concurrency=(["apm2"]="-j2"
                    ["navio"]="-j2"
                    ["sitl"]="-j2"
                    ["linux"]="-j2"
-                   ["px4-v2"]="")
+                   ["px4-v2"]=""
+                   ["px4-v3"]="")
 
-build_extra_clean=(["px4-v2"]="make px4-cleandep")
+build_extra_clean=(["px4-v2 px4-v3"]="make px4-cleandep")
 
 echo "Targets: $TRAVIS_BUILD_TARGET"
 for t in $TRAVIS_BUILD_TARGET; do
