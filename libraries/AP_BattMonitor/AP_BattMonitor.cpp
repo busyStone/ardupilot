@@ -151,7 +151,11 @@ AP_BattMonitor::init()
             case BattMonitor_TYPE_SMBUS:
                 state[instance].instance = instance;
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
+    #if defined(CONFIG_ARCH_BOARD_PX4FMU_V3)
                 drivers[instance] = new AP_BattMonitor_SMBus_PX4(*this, instance, state[instance]);
+    #else
+                drivers[instance] = new AP_BattMonitor_SMBus_UART(*this, instance, state[instance]);
+    #endif
 #else
                 drivers[instance] = new AP_BattMonitor_SMBus_I2C(*this, instance, state[instance]);
 #endif

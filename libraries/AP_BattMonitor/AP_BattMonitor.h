@@ -21,6 +21,7 @@ class AP_BattMonitor_Analog;
 class AP_BattMonitor_SMBus;
 class AP_BattMonitor_SMBus_I2C;
 class AP_BattMonitor_SMBus_PX4;
+class AP_BattMonitor_SMBus_UART;
 
 class AP_BattMonitor
 {
@@ -29,6 +30,7 @@ class AP_BattMonitor
     friend class AP_BattMonitor_SMBus;
     friend class AP_BattMonitor_SMBus_I2C;
     friend class AP_BattMonitor_SMBus_PX4;
+    friend class AP_BattMonitor_SMBus_UART;
 
 public:
 
