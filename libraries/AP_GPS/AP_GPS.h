@@ -32,7 +32,7 @@
    maximum number of GPS instances available on this platform. If more
    than 1 then redundent sensors may be available
  */
-#if HAL_CPU_CLASS > HAL_CPU_CLASS_16
+#if HAL_CPU_CLASS > HAL_CPU_CLASS_16 && defined(CONFIG_ARCH_BOARD_PX4FMU_V3)
 #define GPS_MAX_INSTANCES 2
 #else
 #define GPS_MAX_INSTANCES 1
@@ -330,11 +330,12 @@ public:
     AP_Int8 _navfilter;
 #if GPS_MAX_INSTANCES > 1
     AP_Int8 _auto_switch;
-    AP_Int8 _min_dgps;
-    AP_Int16 _sbp_logmask;
     AP_Int8 _inject_to;
     uint32_t _last_instance_swap_ms;
 #endif
+    AP_Int8 _min_dgps;
+    AP_Int16 _sbp_logmask;
+
     AP_Int8 _sbas_mode;
     AP_Int8 _min_elevation;
     AP_Int8 _raw_data;
