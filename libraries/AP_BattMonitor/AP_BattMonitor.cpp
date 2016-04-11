@@ -145,7 +145,8 @@ AP_BattMonitor::init()
             case BattMonitor_TYPE_ANALOG_VOLTAGE_ONLY:
             case BattMonitor_TYPE_ANALOG_VOLTAGE_AND_CURRENT:
                 state[instance].instance = instance;
-                drivers[instance] = new AP_BattMonitor_Analog(*this, instance, state[instance]);
+                // drivers[instance] = new AP_BattMonitor_Analog(*this, instance, state[instance]);
+                drivers[instance] = new AP_BattMonitor_SMBus_UART(*this, instance, state[instance]);
                 _num_instances++;
                 break;
             case BattMonitor_TYPE_SMBUS:

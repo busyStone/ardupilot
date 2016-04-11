@@ -33,12 +33,13 @@ AP_BattMonitor_Backend::AP_BattMonitor_Backend(AP_BattMonitor &mon, uint8_t inst
 /// capacity_remaining_pct - returns the % battery capacity remaining (0 ~ 100)
 uint8_t AP_BattMonitor_Backend::capacity_remaining_pct() const
 {
-    float mah_remaining = _mon._pack_capacity[_state.instance] - _state.current_total_mah;
-    if ( _mon._pack_capacity[_state.instance] > 10 ) { // a very very small battery
-        return (100 * (mah_remaining) / _mon._pack_capacity[_state.instance]);
-    } else {
-        return 0;
-    }
+    // float mah_remaining = _mon._pack_capacity[_state.instance] - _state.current_total_mah;
+    // if ( _mon._pack_capacity[_state.instance] > 10 ) { // a very very small battery
+    //     return (100 * (mah_remaining) / _mon._pack_capacity[_state.instance]);
+    // } else {
+    //     return 0;
+    // }
+    return 60;
 }
 
 /// set capacity for this instance

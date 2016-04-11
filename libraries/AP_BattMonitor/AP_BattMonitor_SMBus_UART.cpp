@@ -53,6 +53,7 @@ AP_BattMonitor_SMBus_UART::AP_BattMonitor_SMBus_UART(AP_BattMonitor &mon, uint8_
 void AP_BattMonitor_SMBus_UART::init()
 {
     _port = hal.uartE;
+
     _msgPos = (uint8_t *)&_msg;
 }
 
@@ -64,9 +65,9 @@ void AP_BattMonitor_SMBus_UART::read()
     updateRequest();
     update();
 
-    _state.voltage = _voltage;
-    _state.current_amps = _current_amps;
-    // _state.current_total_mah = _current_remaining_mah / _percentage;
+    _state.voltage = (float)_voltage / 100.0f;
+    _state.current_amps = fabsf(_current_amps) / 1000.0f;
+    _state.current_total_mah = (float)_current_remaining_mah / 1000.0f;
     _state.last_time_micros = tnow;
     _state.healthy = true;
 
@@ -79,7 +80,7 @@ void AP_BattMonitor_SMBus_UART::read()
 /// capacity_remaining_pct - returns the % battery capacity remaining (0 ~ 100)
 uint8_t AP_BattMonitor_SMBus_UART::capacity_remaining_pct() const
 {
-    return _percentage;
+    return 70;//_percentage;
 }
 
 /**
@@ -209,7 +210,7 @@ void AP_BattMonitor_SMBus_UART::updateRequest() {
 }
 
 void AP_BattMonitor_SMBus_UART::update() {
-    uint32_t flag;
+
     /* The following function must be called from within a system lock zone. */
     size_t bytesAvailable = _port->available();
 
