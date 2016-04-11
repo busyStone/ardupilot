@@ -35,7 +35,9 @@ class AP_BattMonitor_SMBus_UART : public AP_BattMonitor_SMBus
 public:
 
     // Constructor
-    AP_BattMonitor_SMBus_UART(AP_BattMonitor &mon, uint8_t instance, AP_BattMonitor::BattMonitor_State &mon_state);
+    AP_BattMonitor_SMBus_UART(AP_BattMonitor &mon, uint8_t instance, 
+        AP_BattMonitor::BattMonitor_State &mon_state,
+        AP_HAL::UARTDriver *port);
 
     /// init
     void init();

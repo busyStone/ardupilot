@@ -66,6 +66,10 @@
 #define AP_SERIALMANAGER_SToRM32_BUFSIZE_RX     128
 #define AP_SERIALMANAGER_SToRM32_BUFSIZE_TX     128
 
+#define AP_SERIALMANAGER_SK_BATTERY_BAUD         57600
+#define AP_SERIALMANAGER_SK_BATTERY_BUFSIZE_RX   0
+#define AP_SERIALMANAGER_SK_BATTERY_BUFSIZE_TX   0
+
 
 class AP_SerialManager {
 
@@ -81,6 +85,9 @@ public:
         SerialProtocol_GPS2 = 6,        // do not use - use GPS and provide instance of 1
         SerialProtocol_AlexMos = 7,
         SerialProtocol_SToRM32 = 8,
+
+        SerialProtocol_SK = 100,
+        SerialProtocol_SK_Battery = SerialProtocol_SK + 1,
     };
 
     // Constructor

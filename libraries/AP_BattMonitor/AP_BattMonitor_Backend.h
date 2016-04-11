@@ -38,7 +38,7 @@ public:
     virtual void read() = 0;
 
     /// capacity_remaining_pct - returns the % battery capacity remaining (0 ~ 100)
-    uint8_t capacity_remaining_pct() const;
+    virtual uint8_t capacity_remaining_pct() const;
 
     /// set capacity for this instance
     void set_capacity(uint32_t capacity);

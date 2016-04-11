@@ -40,8 +40,11 @@ static const uint32_t crc_tab[16] = {
 };
 
 // Constructor
-AP_BattMonitor_SMBus_UART::AP_BattMonitor_SMBus_UART(AP_BattMonitor &mon, uint8_t instance, AP_BattMonitor::BattMonitor_State &mon_state) :
+AP_BattMonitor_SMBus_UART::AP_BattMonitor_SMBus_UART(AP_BattMonitor &mon, uint8_t instance, 
+    AP_BattMonitor::BattMonitor_State &mon_state,
+    AP_HAL::UARTDriver *port) :
         AP_BattMonitor_SMBus(mon, instance, mon_state),
+        _port(port),
         _bytesRequired(TELEMETRY_MSG_HDR_SIZE),
         _voltage(0),
         _current_amps(0),
@@ -52,7 +55,10 @@ AP_BattMonitor_SMBus_UART::AP_BattMonitor_SMBus_UART(AP_BattMonitor &mon, uint8_
 
 void AP_BattMonitor_SMBus_UART::init()
 {
-    _port = hal.uartE;
+    _port->begin(
+        AP_SERIALMANAGER_SK_BATTERY_BAUD,
+        AP_SERIALMANAGER_SK_BATTERY_BUFSIZE_RX,
+        AP_SERIALMANAGER_SK_BATTERY_BUFSIZE_TX);
 
     _msgPos = (uint8_t *)&_msg;
 }
@@ -80,7 +86,7 @@ void AP_BattMonitor_SMBus_UART::read()
 /// capacity_remaining_pct - returns the % battery capacity remaining (0 ~ 100)
 uint8_t AP_BattMonitor_SMBus_UART::capacity_remaining_pct() const
 {
-    return 70;//_percentage;
+    return _percentage;
 }
 
 /**

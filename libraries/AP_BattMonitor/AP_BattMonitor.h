@@ -5,6 +5,7 @@
 #include <AP_Common/AP_Common.h>
 #include <AP_Param/AP_Param.h>
 #include <AP_Math/AP_Math.h>
+#include <AP_SerialManager/AP_SerialManager.h>
 
 // maximum number of battery monitors
 #define AP_BATT_MONITOR_MAX_INSTANCES       2
@@ -61,7 +62,7 @@ public:
     uint8_t num_instances(void) const { return _num_instances; }
 
     // detect and initialise any available battery monitors
-    void init();
+    void init(const AP_SerialManager& serial_manager);
 
     /// Read the battery voltage and current for all batteries.  Should be called at 10hz
     void read();

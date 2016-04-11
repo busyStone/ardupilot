@@ -126,7 +126,7 @@ AP_BattMonitor::AP_BattMonitor(void) :
 
 // init - instantiate the battery monitors
 void
-AP_BattMonitor::init()
+AP_BattMonitor::init(const AP_SerialManager& serial_manager)
 {
     // check init has not been called before
     if (_num_instances != 0) {
@@ -138,6 +138,10 @@ AP_BattMonitor::init()
     _monitoring[0] = BattMonitor_TYPE_BEBOP;
 #endif
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 && !defined(CONFIG_ARCH_BOARD_PX4FMU_V3)
+    AP_HAL::UARTDriver *port;
+#endif
+
     // create each instance
     for (uint8_t instance=0; instance<AP_BATT_MONITOR_MAX_INSTANCES; instance++) {
         uint8_t monitor_type = _monitoring[instance];
@@ -145,8 +149,15 @@ AP_BattMonitor::init()
             case BattMonitor_TYPE_ANALOG_VOLTAGE_ONLY:
             case BattMonitor_TYPE_ANALOG_VOLTAGE_AND_CURRENT:
                 state[instance].instance = instance;
-                // drivers[instance] = new AP_BattMonitor_Analog(*this, instance, state[instance]);
-                drivers[instance] = new AP_BattMonitor_SMBus_UART(*this, instance, state[instance]);
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 && !defined(CONFIG_ARCH_BOARD_PX4FMU_V3)
+                port = serial_manager.find_serial(AP_SerialManager::SerialProtocol_SK_Battery, 0);
+                if (port != NULL){
+                    drivers[instance] = new AP_BattMonitor_SMBus_UART(*this, instance, 
+                        state[instance], port);
+                }
+#else
+                drivers[instance] = new AP_BattMonitor_Analog(*this, instance, state[instance]);
+#endif
                 _num_instances++;
                 break;
             case BattMonitor_TYPE_SMBUS:
@@ -155,7 +166,11 @@ AP_BattMonitor::init()
     #if defined(CONFIG_ARCH_BOARD_PX4FMU_V3)
                 drivers[instance] = new AP_BattMonitor_SMBus_PX4(*this, instance, state[instance]);
     #else
-                drivers[instance] = new AP_BattMonitor_SMBus_UART(*this, instance, state[instance]);
+                port = serial_manager.find_serial(AP_SerialManager::SerialProtocol_SK_Battery, 0);
+                if (port != NULL){
+                    drivers[instance] = new AP_BattMonitor_SMBus_UART(*this, instance, 
+                        state[instance], port);
+                }
     #endif
 #else
                 drivers[instance] = new AP_BattMonitor_SMBus_I2C(*this, instance, state[instance]);
