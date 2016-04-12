@@ -56,6 +56,7 @@ enum ap_message {
     MSG_WIND,
     MSG_RANGEFINDER,
     MSG_TERRAIN,
+    MSG_BATTERY_STATUS,
     MSG_BATTERY2,
     MSG_CAMERA_FEEDBACK,
     MSG_MOUNT_STATUS,
@@ -146,6 +147,7 @@ public:
     void send_scaled_pressure(AP_Baro &barometer);
     void send_sensor_offsets(const AP_InertialSensor &ins, const Compass &compass, AP_Baro &barometer);
     void send_ahrs(AP_AHRS &ahrs);
+    void send_battery_status(const AP_BattMonitor &battery);
     void send_battery2(const AP_BattMonitor &battery);
 #if AP_AHRS_NAVEKF_AVAILABLE
     void send_opticalflow(AP_AHRS_NavEKF &ahrs, const OpticalFlow &optflow);

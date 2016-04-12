@@ -693,6 +693,10 @@ bool GCS_MAVLINK::try_send_message(enum ap_message id)
 #endif // MOUNT == ENABLED
         break;
 
+    case MSG_BATTERY_STATUS:
+        CHECK_PAYLOAD_SIZE(BATTERY_STATUS);
+        copter.gcs[chan-MAVLINK_COMM_0].send_battery_status(copter.battery);
+        break;
     case MSG_BATTERY2:
         CHECK_PAYLOAD_SIZE(BATTERY2);
         copter.gcs[chan-MAVLINK_COMM_0].send_battery2(copter.battery);
@@ -964,6 +968,7 @@ GCS_MAVLINK::data_stream_send(void)
 #if AP_TERRAIN_AVAILABLE
         send_message(MSG_TERRAIN);
 #endif
+        send_message(MSG_BATTERY_STATUS);
         send_message(MSG_BATTERY2);
         send_message(MSG_MOUNT_STATUS);
         send_message(MSG_OPTICAL_FLOW);

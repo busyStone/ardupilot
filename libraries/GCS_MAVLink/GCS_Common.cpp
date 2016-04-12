@@ -17,6 +17,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdint.h>
+
 #include "GCS.h"
 #include <AP_AHRS/AP_AHRS.h>
 #include <AP_HAL/AP_HAL.h>
@@ -1186,6 +1188,46 @@ void GCS_MAVLINK::send_statustext_all(gcs_severity severity, const prog_char_t *
             }
         }
     }
+}
+
+// report battery state
+void GCS_MAVLINK::send_battery_status(const AP_BattMonitor &battery)
+{
+    int16_t temperature = INT16_MAX; // INT16_MAX for unknown temperature
+    float f_temperature;
+    uint16_t voltages[10];
+    int16_t battery_current = -1; // in 10*milliamperes, -1: autopilot does not measure the current
+    int32_t current_consumed = -1; // in milliampere hours (1 = 1 mAh), -1: autopilot does not provide mAh consumption estimate
+    int8_t battery_remaining = -1;
+
+    for (int8_t i = 0; i < 10; i++){
+        voltages[i] = UINT16_MAX;
+    }
+
+    voltages[0] = (uint16_t)(battery.voltage() * 1000.0f);
+
+    f_temperature = battery.temperature();
+    if (f_temperature > (float)0.01 && f_temperature < (float)INT16_MAX){
+        temperature = (int16_t)f_temperature;
+    }
+
+    if (battery.has_current() && battery.healthy()){
+        battery_current = (int16_t)(battery.current_amps() * 100.0f);
+        current_consumed = (int32_t)(battery.current_total_mah() * 1000.0f);
+        battery_remaining = battery.capacity_remaining_pct();
+    }
+
+    mavlink_msg_battery_status_send(
+        chan,
+        0, // battery id
+        0, // battery function
+        0, // battery type
+        temperature,
+        voltages,
+        battery_current,
+        current_consumed,
+        -1, // Consumed energy, in 100*Joules (intergrated U*I*dt)  (1 = 100 Joule), -1: autopilot does not provide energy consumption estimate
+        battery_remaining);
 }
 
 // report battery2 state
