@@ -46,6 +46,7 @@ AP_BattMonitor_SMBus_UART::AP_BattMonitor_SMBus_UART(AP_BattMonitor &mon, uint8_
         AP_BattMonitor_SMBus(mon, instance, mon_state),
         _port(port),
         _bytesRequired(TELEMETRY_MSG_HDR_SIZE),
+        _temperature(0),
         _voltage(0),
         _current_amps(0),
         _current_remaining_mah(0),
@@ -71,9 +72,14 @@ void AP_BattMonitor_SMBus_UART::read()
     updateRequest();
     update();
 
-    _state.voltage = (float)_voltage / 100.0f;
+    _state.temperature = (float)_temperature / 100.0f;
+    _state.voltage = (float)_voltage / 1000.0f;
     _state.current_amps = fabsf(_current_amps) / 1000.0f;
-    _state.current_total_mah = (float)_current_remaining_mah / 1000.0f;
+    _state.current_total_mah =
+        (
+            (float)(_current_remaining_mah * 100.0f) / (float)_percentage
+          - (float)_current_remaining_mah
+        ) / 1000.0f;
     _state.last_time_micros = tnow;
     _state.healthy = true;
 
@@ -165,6 +171,8 @@ void AP_BattMonitor_SMBus_UART::readSerialDataResync(uint8_t len) {
 
 void AP_BattMonitor_SMBus_UART::processMessage() {
     switch (_msg.msg_id) {
+    case 't':
+        _temperature = *(uint16_t *)_msg.data;
     case 'v':
         _voltage = *(uint16_t *)_msg.data;
         //printf("num_gcs:%d\n", num_gcs);
@@ -208,6 +216,7 @@ void AP_BattMonitor_SMBus_UART::sendUpdateRequestMsg(uint8_t msg_id) {
 }
 
 void AP_BattMonitor_SMBus_UART::updateRequest() {
+    sendUpdateRequestMsg('t');
     sendUpdateRequestMsg('v');
     sendUpdateRequestMsg('c');
     sendUpdateRequestMsg('p');

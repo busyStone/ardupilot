@@ -214,6 +214,15 @@ bool AP_BattMonitor::healthy(uint8_t instance) const {
     return instance < AP_BATT_MONITOR_MAX_INSTANCES && _BattMonitor_STATE(instance).healthy;
 }
 
+float AP_BattMonitor::temperature(uint8_t instance) const
+{
+    if (instance < AP_BATT_MONITOR_MAX_INSTANCES) {
+        return _BattMonitor_STATE(instance).temperature;
+    } else {
+        return 0.0f;
+    }
+}
+
 /// has_current - returns true if battery monitor instance provides current info
 bool AP_BattMonitor::has_current(uint8_t instance) const
 {

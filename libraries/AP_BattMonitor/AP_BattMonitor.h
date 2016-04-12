@@ -51,6 +51,7 @@ public:
     struct BattMonitor_State {
         uint8_t     instance;           // the instance number of this monitor
         bool        healthy;            // battery monitor is communicating correctly
+        float       temperature;        // temperature in centi-degrees celsius
         float       voltage;            // voltage in volts
         float       current_amps;       // current in amperes
         float       current_total_mah;  // total current draw since start-up
@@ -72,6 +73,9 @@ public:
     // healthy - returns true if monitor is functioning
     bool healthy(uint8_t instance) const;
     bool healthy() const { return healthy(AP_BATT_PRIMARY_INSTANCE); }
+
+    float temperature(uint8_t instance) const;
+    float temperature() const {return temperature(AP_BATT_PRIMARY_INSTANCE);}
 
     /// has_current - returns true if battery monitor instance provides current info
     bool has_current(uint8_t instance) const;

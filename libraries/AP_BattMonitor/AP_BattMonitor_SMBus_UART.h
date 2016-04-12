@@ -43,6 +43,7 @@ public:
     void init();
     // Read the battery voltage and current.  Should be called at 10hz
     void read();
+
     uint8_t capacity_remaining_pct() const;
 
 private:
@@ -60,6 +61,7 @@ private:
     TelemetryMessage _msg;
     uint8_t *_msgPos;
     size_t _bytesRequired;
+    uint16_t _temperature;
     uint16_t _voltage;
     int16_t  _current_amps;
     uint16_t _current_remaining_mah;
