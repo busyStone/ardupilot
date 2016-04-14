@@ -43,6 +43,10 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
 {
     AP_HAL::UARTDriver *port;
 
+    if (_ranger._serial_manager == NULL){
+        return false;
+    }
+
     port = _ranger._serial_manager->find_serial(AP_SerialManager::SerialProtocol_SK_PulseLight, 0);
     if (port == NULL) {
       return false;
@@ -170,6 +174,8 @@ uint16_t AP_RangeFinder_SK_PulsedLight::asscii2mm(uint8_t* msg){
     mm += (msg[8] - 0x30) * 100;
     mm += (msg[9] - 0x30) * 10;
     mm += (msg[10] - 0x30);
+
+    return mm;
 }
 
 int8_t AP_RangeFinder_SK_PulsedLight::setAddr(uint8_t addr){
