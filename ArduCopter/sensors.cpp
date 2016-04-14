@@ -29,7 +29,7 @@ void Copter::read_barometer(void)
 #if CONFIG_SONAR == ENABLED
 void Copter::init_sonar(void)
 {
-   sonar.init();
+   sonar.init(&serial_manager);
 }
 #endif
 

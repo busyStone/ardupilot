@@ -172,6 +172,11 @@ void AP_SerialManager::init()
                     state[i].baud = AP_SERIALMANAGER_SK_BATTERY_BAUD/1000;
                     // begin is handled by AP_BattMonitor library
                     break;
+                case SerialProtocol_SK_PulseLight:
+                    // Note baudrate is hardcoded to 9600
+                    state[i].baud = AP_SERIALMANAGER_SK_PULSELIGHT_BAUD/1000;
+                    // begin is handled by AP_RangeFinder library
+                    break;
             }
         }
     }

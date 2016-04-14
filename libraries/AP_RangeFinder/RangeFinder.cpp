@@ -21,6 +21,7 @@
 #include "AP_RangeFinder_PX4.h"
 #include "AP_RangeFinder_PX4_PWM.h"
 #include "AP_RangeFinder_BBB_PRU.h"
+#include "AP_RangeFinder_SK_PulsedLight.h"
 
 // table of user settable parameters
 const AP_Param::GroupInfo RangeFinder::var_info[] PROGMEM = {
@@ -203,8 +204,10 @@ RangeFinder::RangeFinder(void) :
   finders here. For now we won't allow for hot-plugging of
   rangefinders.
  */
-void RangeFinder::init(void)
+void RangeFinder::init(AP_SerialManager* serial_manager)
 {
+    _serial_manager = serial_manager;
+
     if (num_instances != 0) {
         // init called a 2nd time?
         return;
@@ -306,6 +309,14 @@ void RangeFinder::detect_instance(uint8_t instance)
         }
     }
 #endif
+    if (type == RangeFinder_TYPE_SK_PLUART) {
+        if (AP_RangeFinder_SK_PulsedLight::detect(*this, instance)) {
+            state[instance].instance = instance;
+            drivers[instance] = new AP_RangeFinder_SK_PulsedLight(*this, instance, state[instance]);
+            return;
+        }
+    }
+
     if (type == RangeFinder_TYPE_ANALOG) {
         // note that analog must be the last to be checked, as it will
         // always come back as present if the pin is valid

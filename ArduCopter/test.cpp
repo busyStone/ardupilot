@@ -248,7 +248,7 @@ int8_t Copter::test_shell(uint8_t argc, const Menu::arg *argv)
 int8_t Copter::test_sonar(uint8_t argc, const Menu::arg *argv)
 {
 #if CONFIG_SONAR == ENABLED
-	sonar.init();
+	sonar.init(NULL);
 
     cliSerial->printf_P(PSTR("RangeFinder: %d devices detected\n"), sonar.num_sensors());
 

@@ -22,6 +22,8 @@
 #include <AP_Param/AP_Param.h>
 #include <AP_Math/AP_Math.h>
 
+#include <AP_SerialManager/AP_SerialManager.h>
+
 // Maximum number of range finder instances available on this platform
 #define RANGEFINDER_MAX_INSTANCES 2
 #define RANGEFINDER_GROUND_CLEARANCE_CM_DEFAULT 10
@@ -45,7 +47,9 @@ public:
         RangeFinder_TYPE_PLI2C  = 3,
         RangeFinder_TYPE_PX4    = 4,
         RangeFinder_TYPE_PX4_PWM= 5,
-        RangeFinder_TYPE_BBB_PRU= 6
+        RangeFinder_TYPE_BBB_PRU= 6,
+
+        RangeFinder_TYPE_SK_PLUART = 101
     };
 
     enum RangeFinder_Function {
@@ -90,19 +94,21 @@ public:
     AP_Int16 _powersave_range;
 
     static const struct AP_Param::GroupInfo var_info[];
-    
+
+    AP_SerialManager* _serial_manager;
+
     // Return the number of range finder instances
     uint8_t num_sensors(void) const {
         return num_instances;
     }
 
     // detect and initialise any available rangefinders
-    void init(void);
+    void init(AP_SerialManager* serial_manager);
 
     // update state of all rangefinders. Should be called at around
     // 10Hz from main loop
     void update(void);
-    
+
 #define _RangeFinder_STATE(instance) state[instance]
 
     uint16_t distance_cm(uint8_t instance) const {

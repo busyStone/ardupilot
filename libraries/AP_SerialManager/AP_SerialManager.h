@@ -70,6 +70,9 @@
 #define AP_SERIALMANAGER_SK_BATTERY_BUFSIZE_RX   0
 #define AP_SERIALMANAGER_SK_BATTERY_BUFSIZE_TX   0
 
+#define AP_SERIALMANAGER_SK_PULSELIGHT_BAUD       9600
+#define AP_SERIALMANAGER_SK_PULSELIGHT_BUFSIZE_RX 24
+#define AP_SERIALMANAGER_SK_PULSELIGHT_BUFSIZE_TX 0
 
 class AP_SerialManager {
 
@@ -86,8 +89,8 @@ public:
         SerialProtocol_AlexMos = 7,
         SerialProtocol_SToRM32 = 8,
 
-        SerialProtocol_SK = 100,
-        SerialProtocol_SK_Battery = SerialProtocol_SK + 1,
+        SerialProtocol_SK_Battery = 101,
+        SerialProtocol_SK_PulseLight = 102,
     };
 
     // Constructor
