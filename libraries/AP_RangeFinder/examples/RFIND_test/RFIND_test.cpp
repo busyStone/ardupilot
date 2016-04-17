@@ -34,31 +34,37 @@
 #include <AP_Scheduler/AP_Scheduler.h>
 #include <AP_BattMonitor/AP_BattMonitor.h>
 #include <AP_Rally/AP_Rally.h>
+#include <AP_SerialManager/AP_SerialManager.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
 static RangeFinder sonar;
+AP_SerialManager serial_manager;
 
 void setup()
 {
     // print welcome message
     hal.console->println("Range Finder library test");
 
+    AP_Param::set_object_value(&serial_manager, serial_manager.var_info, "3_PROTOCOL", AP_SerialManager::SerialProtocol_SK_PulseLight);
+    serial_manager.init_console();
+    serial_manager.init();
+
     // setup for analog pin 13
-    AP_Param::set_object_value(&sonar, sonar.var_info, "_TYPE", RangeFinder::RangeFinder_TYPE_PLI2C);
+    AP_Param::set_object_value(&sonar, sonar.var_info, "_TYPE", RangeFinder::RangeFinder_TYPE_SK_PLUART);
     AP_Param::set_object_value(&sonar, sonar.var_info, "_PIN", -1);
     AP_Param::set_object_value(&sonar, sonar.var_info, "_SCALING", 1.0);
 
     // initialise sensor, delaying to make debug easier
     hal.scheduler->delay(2000);
-    sonar.init();
+    sonar.init(&serial_manager);
     hal.console->printf_P(PSTR("RangeFinder: %d devices detected\n"), sonar.num_sensors());
 }
 
 void loop()
 {
     // Delay between reads
-    hal.scheduler->delay(100);
+    hal.scheduler->delay(2000);
     sonar.update();
 
     hal.console->printf_P(PSTR("Primary: status %d distance_cm %d \n"), (int)sonar.status(), sonar.distance_cm());
