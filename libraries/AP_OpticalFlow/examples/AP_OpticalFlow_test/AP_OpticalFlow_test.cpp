@@ -11,6 +11,7 @@
 #include <AP_HAL/AP_HAL.h>
 #include <AP_HAL_AVR/AP_HAL_AVR.h>
 #include <AP_HAL_SITL/AP_HAL_SITL.h>
+#include <AP_HAL_PX4/AP_HAL_PX4.h>
 #include <AP_AHRS/AP_AHRS.h>
 #include <AP_Compass/AP_Compass.h>
 #include <AP_Declination/AP_Declination.h>
@@ -43,18 +44,28 @@ void setup()
     // flowSensor initialization
     optflow.init();
 
-    if (!optflow.healthy()) {
-        hal.console->print("Failed to initialise PX4Flow ");
-    }
-
     hal.scheduler->delay(1000);
 }
 
 void loop()
 {
-    hal.console->println("this only tests compilation succeeds");
+    hal.console->println("in loop");
 
-    hal.scheduler->delay(5000);
+    optflow.update();
+
+    if (!optflow.healthy()) {
+        hal.console->println("Failed to initialise PX4Flow ");
+    }else{
+        hal.console->printf("device id %d\n", optflow._state.device_id);
+        hal.console->printf("data surface_quality = %d\n", optflow._state.surface_quality);
+        hal.console->printf("data flowRate.x = %f\n", optflow._state.flowRate.x);
+        hal.console->printf("data flowRate.y = %f\n", optflow._state.flowRate.y);
+        hal.console->printf("data bodyRate.x = %f\n", optflow._state.bodyRate.x);
+        hal.console->printf("data bodyRate.y = %f\n", optflow._state.bodyRate.y);
+    }
+
+
+    hal.scheduler->delay(200);
 }
 
 AP_HAL_MAIN();

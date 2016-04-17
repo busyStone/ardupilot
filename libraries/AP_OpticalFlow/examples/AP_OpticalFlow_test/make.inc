@@ -24,3 +24,6 @@ LIBRARIES += DataFlash
 LIBRARIES += Filter
 LIBRARIES += GCS_MAVLink
 LIBRARIES += StorageManager
+LIBRARIES += AP_HAL_Empty
+LIBRARIES += AP_HAL_PX4
+LIBRARIES += AP_Scheduler
