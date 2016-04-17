@@ -40,7 +40,7 @@
     #define CAMERA                DISABLED            // disable camera trigger to save 1k of flash
     #define PARACHUTE             DISABLED            // disable parachute release to save 1k of flash
     #define EPM_ENABLED           DISABLED            // disable epm cargo gripper to save 500bytes of flash
-    #define OPTFLOW               DISABLED            // disable optical flow sensor to save 5K of flash space
+    // #define OPTFLOW               DISABLED            // disable optical flow sensor to save 5K of flash space
     #define FRSKY_TELEM_ENABLED   DISABLED            // disable FRSky telemetry
 #endif
 
