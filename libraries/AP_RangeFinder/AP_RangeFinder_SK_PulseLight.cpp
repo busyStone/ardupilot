@@ -41,14 +41,12 @@ AP_RangeFinder_SK_PulsedLight::AP_RangeFinder_SK_PulsedLight(RangeFinder &_range
 */
 bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instance)
 {
-    AP_HAL::UARTDriver *port;
-
     if (_ranger._serial_manager == NULL){
         return false;
     }
 
-    port = _ranger._serial_manager->find_serial(AP_SerialManager::SerialProtocol_SK_PulseLight, 0);
-    if (port == NULL) {
+    _port = _ranger._serial_manager->find_serial(AP_SerialManager::SerialProtocol_SK_PulseLight, 0);
+    if (_port == NULL) {
       return false;
     }
 
@@ -72,8 +70,6 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
         return false;
     }
 
-    _port = port;
-
     return true;
 }
 
@@ -83,8 +79,8 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
 void AP_RangeFinder_SK_PulsedLight::update(void)
 {
     uint8_t header[3] = {0x80, 0x06, 0x83};
-    uint8_t available;
-    uint8_t loop_cnt;
+    int16_t available;
+    int16_t loop_cnt;
     uint8_t checksum;
     uint8_t checksum_index;
     uint64_t sum = 0;
@@ -103,6 +99,11 @@ void AP_RangeFinder_SK_PulsedLight::update(void)
             }
         }
 
+        if (_port->available() <= 0 || _msg_pos < sizeof(header)){
+            // still need wait a valid header
+            break;
+        }
+
         // read 7 bytes paylod and 1 byte checksum
         available = _port->available();
         loop_cnt = 8;
@@ -111,7 +112,7 @@ void AP_RangeFinder_SK_PulsedLight::update(void)
             loop_cnt = available;
         }
 
-        for (uint8_t i = 0; i < loop_cnt; i++){
+        for (int16_t i = 0; i < loop_cnt; i++){
             _distance_msg[_msg_pos++] = _port->read();
         }
 
@@ -182,14 +183,14 @@ int8_t AP_RangeFinder_SK_PulsedLight::setAddr(uint8_t addr){
     uint8_t addrs[5] = {0xFA, 0x04, 0x01, 0x00, 0x00};
     uint8_t result[4] = {0xFA, 0x4, 0x81, 0x81};
 
-    return setCmd(addrs, result, addr);
+    return setCmd5Result4(addrs, result, addr);
 }
 
 int8_t AP_RangeFinder_SK_PulsedLight::setRange(uint8_t range){
     uint8_t addrs[5] = {0xFA, 0x04, 0x09, 0x00, 0x00};
     uint8_t result[4] = {0xFA, 0x4, 0x89, 0x79};
 
-    return setCmd(addrs, result, range);
+    return setCmd5Result4(addrs, result, range);
 }
 
 // - 0 start from tail
@@ -198,14 +199,14 @@ int8_t AP_RangeFinder_SK_PulsedLight::setStartPoint(uint8_t start){
     uint8_t addrs[5] = {0xFA, 0x04, 0x08, 0x00, 0x00};
     uint8_t result[4] = {0xFA, 0x4, 0x88, 0x7A};
 
-    return setCmd(addrs, result, start);
+    return setCmd5Result4(addrs, result, start);
 }
 
 int8_t AP_RangeFinder_SK_PulsedLight::setFreq(uint8_t freq){
     uint8_t addrs[5] = {0xFA, 0x04, 0x0A, 0x00, 0x00};
     uint8_t result[4] = {0xFA, 0x4, 0x8A, 0x78};
 
-    return setCmd(addrs, result, freq);
+    return setCmd5Result4(addrs, result, freq);
 }
 
 int8_t AP_RangeFinder_SK_PulsedLight::startMeas(void){
@@ -218,15 +219,15 @@ int8_t AP_RangeFinder_SK_PulsedLight::startMeas(void){
     return 0;
 }
 
-int8_t AP_RangeFinder_SK_PulsedLight::setCmd(uint8_t* addrs, uint8_t* result, uint8_t param){
+int8_t AP_RangeFinder_SK_PulsedLight::setCmd5Result4(uint8_t* addrs, uint8_t* result, uint8_t param){
 
     uint8_t temp[4];
 
     addrs[3] = param;
 
-    addrs[4] = calcCheckSum(addrs, sizeof(addrs) - 1);
+    addrs[4] = calcCheckSum(addrs, 4);
 
-    _port->write((const uint8_t *)addrs, sizeof(addrs));
+    _port->write((const uint8_t *)addrs, 5);
 
     // wait for result, 100ms timeout
     uint64_t start =  hal.scheduler->micros64();
@@ -235,7 +236,7 @@ int8_t AP_RangeFinder_SK_PulsedLight::setCmd(uint8_t* addrs, uint8_t* result, ui
 
     while(hal.scheduler->micros64() - start < 100000){
 
-        ret = read_except(&temp[pos], &result[pos], sizeof(result) - pos);
+        ret = read_except(&temp[pos], &result[pos], 4 - pos);
         if (ret < 0){
             pos = 0;
         } else{

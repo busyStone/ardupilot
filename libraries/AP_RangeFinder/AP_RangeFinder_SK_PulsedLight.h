@@ -28,7 +28,7 @@ private:
     static int8_t setStartPoint(uint8_t start);
     static int8_t setFreq(uint8_t freq);
     static int8_t startMeas(void);
-    static int8_t setCmd(uint8_t* addrs, uint8_t* result, uint8_t param);
+    static int8_t setCmd5Result4(uint8_t* addrs, uint8_t* result, uint8_t param);
     static int8_t read_except(uint8_t* buf, uint8_t* expect, uint8_t expect_len);
     static uint8_t calcCheckSum(uint8_t* data, uint8_t len);
     bool isError(uint8_t* msg);
