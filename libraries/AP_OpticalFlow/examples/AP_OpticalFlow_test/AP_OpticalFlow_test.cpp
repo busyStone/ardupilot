@@ -56,12 +56,12 @@ void loop()
     if (!optflow.healthy()) {
         hal.console->println("Failed to initialise PX4Flow ");
     }else{
-        hal.console->printf("device id %d\n", optflow._state.device_id);
-        hal.console->printf("data surface_quality = %d\n", optflow._state.surface_quality);
-        hal.console->printf("data flowRate.x = %f\n", optflow._state.flowRate.x);
-        hal.console->printf("data flowRate.y = %f\n", optflow._state.flowRate.y);
-        hal.console->printf("data bodyRate.x = %f\n", optflow._state.bodyRate.x);
-        hal.console->printf("data bodyRate.y = %f\n", optflow._state.bodyRate.y);
+        hal.console->printf("device id %d\n", optflow.test_state.device_id);
+        hal.console->printf("data surface_quality = %d\n", optflow.test_state.surface_quality);
+        hal.console->printf("data flowRate.x = %f\n", optflow.test_state.flowRate.x);
+        hal.console->printf("data flowRate.y = %f\n", optflow.test_state.flowRate.y);
+        hal.console->printf("data bodyRate.x = %f\n", optflow.test_state.bodyRate.x);
+        hal.console->printf("data bodyRate.y = %f\n", optflow.test_state.bodyRate.y);
     }
 
 

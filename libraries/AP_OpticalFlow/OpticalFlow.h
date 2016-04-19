@@ -72,7 +72,9 @@ public:
 
     // support for HIL/SITL
     void setHIL(const struct OpticalFlow_state &state);
-struct OpticalFlow_state _state;
+
+    struct OpticalFlow_state test_state;
+
 private:
     OpticalFlow_backend *backend;
 
@@ -88,7 +90,7 @@ private:
 
 
     // state filled in by backend
-    // struct OpticalFlow_state _state;
+    struct OpticalFlow_state _state;
 
     uint32_t _last_update_ms;        // millis() time of last update
 };
