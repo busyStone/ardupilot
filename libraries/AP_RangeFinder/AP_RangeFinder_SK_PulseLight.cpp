@@ -13,13 +13,14 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #include "AP_RangeFinder_SK_PulsedLight.h"
 #include <AP_HAL/AP_HAL.h>
 
 extern const AP_HAL::HAL& hal;
 
 static AP_HAL::UARTDriver* _port = NULL;
+
+#define RFINDER_NODATA_TIMEOUT 2000000 // us
 
 /* 
    The constructor also initialises the rangefinder. Note that this
@@ -58,7 +59,21 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
         return false;
     }
 
-    if (setRange(5) != 0){
+    int16_t val_info_range_max = _ranger._max_distance_cm[instance] / 100;
+    int16_t range = 5; // m  5,10,30,50,80
+
+    if (val_info_range_max <= 5){
+    }else if (val_info_range_max <= 10){
+        range = 10;
+    }else if (val_info_range_max <= 30){
+        range = 30;
+    }else if (val_info_range_max <= 50){
+        range = 50;
+    }else{
+        range = 80;
+    }
+
+    if (setRange(range) != 0){
         return false;
     }
 
@@ -66,7 +81,7 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
         return false;
     }
 
-    if (setFreq(20) != 0){
+    if (setFreq(10) != 0){
         return false;
     }
 
@@ -79,33 +94,57 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
 void AP_RangeFinder_SK_PulsedLight::update(void)
 {
     uint8_t header[3] = {0x80, 0x06, 0x83};
-    int16_t available;
     int16_t loop_cnt;
     uint8_t checksum;
     uint8_t checksum_index;
-    uint64_t sum = 0;
+    int16_t available = _port->available();
     uint8_t count = 0;
+    float sum = 0;
 
-    int8_t ret;
+    if (available <= 0){
+        return;
+    }
+
+    // read header
+    while (available > 0 && _msg_pos < sizeof(header)){
+        switch(_msg_pos){
+            case 0:
+            {
+                if (_port->read() == header[_msg_pos]){
+                    _distance_msg[_msg_pos++] = header[0];
+                }
+
+                available--;
+            }
+            break;
+            case 1:
+            {
+                if (_port->read() == header[_msg_pos]){
+                    _distance_msg[_msg_pos++] = header[1];
+                }
+
+                available--;
+            }
+            break;
+            case 2:
+            {
+                if (_port->read() == header[_msg_pos]){
+                    _distance_msg[_msg_pos++] = header[2];
+                }
+
+                available--;
+            }
+            break;
+        }
+    }
 
     do{
-        // read header
-        while (_port->available() > 0 && _msg_pos < sizeof(header)){
-            ret = read_except(&_distance_msg[_msg_pos], &header[_msg_pos], sizeof(header) - _msg_pos);
-            if (ret < 0){
-                _msg_pos = 0;
-            }else {
-                _msg_pos += ret;
-            }
-        }
-
-        if (_port->available() <= 0 || _msg_pos < sizeof(header)){
+        if (available <= 0 || _msg_pos < sizeof(header)){
             // still need wait a valid header
             break;
         }
 
-        // read 7 bytes paylod and 1 byte checksum
-        available = _port->available();
+        // read 7 bytes payload and 1 byte checksum
         loop_cnt = 8;
 
         if (available < loop_cnt){
@@ -114,6 +153,7 @@ void AP_RangeFinder_SK_PulsedLight::update(void)
 
         for (int16_t i = 0; i < loop_cnt; i++){
             _distance_msg[_msg_pos++] = _port->read();
+            available--;
         }
 
         if (_msg_pos != sizeof(_distance_msg)){ // not a valid msg at all
@@ -125,56 +165,55 @@ void AP_RangeFinder_SK_PulsedLight::update(void)
         // check valid
         checksum_index = sizeof(_distance_msg) - 1;
         checksum = calcCheckSum(_distance_msg, checksum_index);
+
         if (_distance_msg[checksum_index] != checksum){
             break;
         }
 
         // unpack msg
         if (isError(_distance_msg)){
-            // finder return error msg, may be out of finder meas range
             break;
         }
 
         // tran ascii distance to cm
-        sum += (uint64_t)asscii2mm(_distance_msg);
+        sum += (float)asscii2mm(_distance_msg);
         count++;
 
         _last_timestamp = hal.scheduler->micros64();
-    }while(_port->available() > 0);
+    }while(available > 0);
 
     if (count > 0){
-        state.distance_cm = (float)sum / (count * 10.0f);
+        state.distance_cm = (uint16_t)(sum / ((float)count * 10.0f));
         state.distance_cm += ranger._offset[state.instance];
 
         update_status();
-        return;
     }
 
-    if (hal.scheduler->micros64() - _last_timestamp >= 200000) {
+    if (hal.scheduler->micros64() - _last_timestamp >= RFINDER_NODATA_TIMEOUT) {
         set_status(RangeFinder::RangeFinder_NoData);
     }
 }
 
 bool AP_RangeFinder_SK_PulsedLight::isError(uint8_t* msg){
-    return (msg[4] == 'E' && msg[5] == 'R' && msg[6] == 'R')
+    return (msg[3] == 'E' && msg[4] == 'R' && msg[5] == 'R')
+         || msg[3] < 0x30
          || msg[4] < 0x30
          || msg[5] < 0x30
-         || msg[6] < 0x30
-         || msg[7] != '.'
+         || msg[6] != '.'
+         || msg[7] < 0x30
          || msg[8] < 0x30
-         || msg[9] < 0x30
-         || msg[10] < 0x30;
+         || msg[9] < 0x30;
 }
 
 uint16_t AP_RangeFinder_SK_PulsedLight::asscii2mm(uint8_t* msg){
     uint16_t mm;
 
-    mm = (msg[4] - 0x30) * 100000;
-    mm += (msg[5] - 0x30) * 10000;
-    mm += (msg[6] - 0x30) * 1000;
-    mm += (msg[8] - 0x30) * 100;
-    mm += (msg[9] - 0x30) * 10;
-    mm += (msg[10] - 0x30);
+    mm = (msg[3] - 0x30) * 100000;
+    mm += (msg[4] - 0x30) * 10000;
+    mm += (msg[5] - 0x30) * 1000;
+    mm += (msg[7] - 0x30) * 100;
+    mm += (msg[8] - 0x30) * 10;
+    mm += (msg[9] - 0x30);
 
     return mm;
 }

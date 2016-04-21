@@ -1,7 +1,8 @@
 /*
  *  RangeFinder test code
  */
- 
+#include <stdio.h>
+
 #include <AP_RangeFinder/AP_RangeFinder.h>
 #include <AP_Common/AP_Common.h>
 #include <AP_HAL/AP_HAL.h>
@@ -44,7 +45,8 @@ AP_SerialManager serial_manager;
 void setup()
 {
     // print welcome message
-    hal.console->println("Range Finder library test");
+    // hal.console->println("Range Finder library test");
+    printf("Range Finder library test");
 
     AP_Param::set_object_value(&serial_manager, serial_manager.var_info, "3_PROTOCOL", AP_SerialManager::SerialProtocol_SK_PulseLight);
     serial_manager.init_console();
@@ -58,18 +60,23 @@ void setup()
     // initialise sensor, delaying to make debug easier
     hal.scheduler->delay(2000);
     sonar.init(&serial_manager);
-    hal.console->printf_P(PSTR("RangeFinder: %d devices detected\n"), sonar.num_sensors());
+    // hal.console->printf_P(PSTR("RangeFinder: %d devices detected\n"), sonar.num_sensors());
+    printf("RangeFinder: %d devices detected\n", sonar.num_sensors());
 }
 
 void loop()
 {
     // Delay between reads
-    hal.scheduler->delay(2000);
+    hal.scheduler->delay(100);
     sonar.update();
 
-    hal.console->printf_P(PSTR("Primary: status %d distance_cm %d \n"), (int)sonar.status(), sonar.distance_cm());
-    hal.console->printf_P(PSTR("All: device_0 type %d status %d distance_cm %d, device_1 type %d status %d distance_cm %d\n"),
-    (int)sonar._type[0], (int)sonar.status(0), sonar.distance_cm(0), (int)sonar._type[1], (int)sonar.status(1), sonar.distance_cm(1));
+    // hal.console->printf_P(PSTR("Primary: status %d distance_cm %d \n"), (int)sonar.status(), sonar.distance_cm());
+    // hal.console->printf_P(PSTR("All: device_0 type %d status %d distance_cm %d, device_1 type %d status %d distance_cm %d\n"),
+    // (int)sonar._type[0], (int)sonar.status(0), sonar.distance_cm(0), (int)sonar._type[1], (int)sonar.status(1), sonar.distance_cm(1));
+
+    printf("Primary: status %d distance_cm %d \n", (int)sonar.status(), sonar.distance_cm());
+    // printf("All: device_0 type %d status %d distance_cm %d, device_1 type %d status %d distance_cm %d\n",
+    // (int)sonar._type[0], (int)sonar.status(0), sonar.distance_cm(0), (int)sonar._type[1], (int)sonar.status(1), sonar.distance_cm(1));
 
 }
 AP_HAL_MAIN();
