@@ -151,8 +151,6 @@ void RGBLed::update_colours(void)
         return;
     }
 
-    #ifdef CONFIG_ARCH_BOARD_PX4FMU_V3
-
     // should before failsafe
     // double flash yellow
     if (AP_Notify::flags.compass_cal_running){
@@ -188,7 +186,7 @@ void RGBLed::update_colours(void)
 		_red_des = brightness;
         _blue_des = _led_off;
         _green_des = _led_off;
-                
+
 		return;
 	}
 
@@ -197,11 +195,9 @@ void RGBLed::update_colours(void)
 		_red_des = _led_off;
         _blue_des = _led_off;
         _green_des = brightness;
-                
+
 		return;
 	}
-	
-#endif
 
     // radio and battery failsafe patter: flash yellow
     // gps failsafe pattern : flashing yellow and blue
