@@ -149,15 +149,7 @@ AP_BattMonitor::init(const AP_SerialManager& serial_manager)
             case BattMonitor_TYPE_ANALOG_VOLTAGE_ONLY:
             case BattMonitor_TYPE_ANALOG_VOLTAGE_AND_CURRENT:
                 state[instance].instance = instance;
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 && !defined(CONFIG_ARCH_BOARD_PX4FMU_V3)
-                port = serial_manager.find_serial(AP_SerialManager::SerialProtocol_SK_Battery, 0);
-                if (port != NULL){
-                    drivers[instance] = new AP_BattMonitor_SMBus_UART(*this, instance, 
-                        state[instance], port);
-                }
-#else
                 drivers[instance] = new AP_BattMonitor_Analog(*this, instance, state[instance]);
-#endif
                 _num_instances++;
                 break;
             case BattMonitor_TYPE_SMBUS:
