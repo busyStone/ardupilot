@@ -33,9 +33,12 @@ private:
     static uint8_t calcCheckSum(uint8_t* data, uint8_t len);
     bool isError(uint8_t* msg);
     uint16_t asscii2mm(uint8_t* msg);
+    size_t read_port(uint8_t *buf, uint32_t len);
+    void re_sync(uint8_t len);
 
     uint8_t _distance_msg[11];
-    uint8_t _msg_pos;
+    uint8_t* _msg_pos;
+    uint8_t _bytes_required;
     uint64_t _last_timestamp;
 };
 #endif  // __AP_RANGEFINDER_SK_PULSEDLIGHT_H__

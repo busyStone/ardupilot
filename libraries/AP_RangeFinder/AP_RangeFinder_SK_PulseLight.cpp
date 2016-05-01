@@ -13,6 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+// #include <stdio.h>
 #include "AP_RangeFinder_SK_PulsedLight.h"
 #include <AP_HAL/AP_HAL.h>
 
@@ -20,7 +21,17 @@ extern const AP_HAL::HAL& hal;
 
 static AP_HAL::UARTDriver* _port = NULL;
 
-#define RFINDER_NODATA_TIMEOUT 2000000 // us
+#define RFINDER_UART_NODATA_TIMEOUT 2000000 // us
+#define RFINDER_UART_MSG_LEN 11
+#define RFINDER_UART_MSG_HEADER_LEN 3
+
+#define RFINDER_UART_ADDR 0x80
+#define RFINDER_UART_MEAS_FROM_FRONT 1
+#define RFINDER_UART_MEAS_RANGE_10M  10
+#define RFINDER_UART_MEAS_RANGE_30M  30
+#define RFINDER_UART_MEAS_RANGE_50M  50
+#define RFINDER_UART_MEAS_RANGE_80M  80
+#define RFINDER_UART_MEAS_FREQ_10Hz  10
 
 /* 
    The constructor also initialises the rangefinder. Note that this
@@ -29,10 +40,12 @@ static AP_HAL::UARTDriver* _port = NULL;
 */
 AP_RangeFinder_SK_PulsedLight::AP_RangeFinder_SK_PulsedLight(RangeFinder &_ranger, uint8_t instance, RangeFinder::RangeFinder_State &_state) :
     AP_RangeFinder_Backend(_ranger, instance, _state),
-    _msg_pos(0),
+    _bytes_required(RFINDER_UART_MSG_LEN),
     _last_timestamp(0)
 {
     memset(_distance_msg, 0, sizeof(_distance_msg));
+
+    _msg_pos = (uint8_t*)&_distance_msg;
 
     startMeas();
 }
@@ -55,7 +68,7 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
       AP_SERIALMANAGER_SK_PULSELIGHT_BUFSIZE_RX,
       AP_SERIALMANAGER_SK_PULSELIGHT_BUFSIZE_TX);
 
-    if (setAddr(0x80) != 0){
+    if (setAddr(RFINDER_UART_ADDR) != 0){
         return false;
     }
 
@@ -63,25 +76,25 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
     int16_t range = 5; // m  5,10,30,50,80
 
     if (val_info_range_max <= 5){
-    }else if (val_info_range_max <= 10){
-        range = 10;
-    }else if (val_info_range_max <= 30){
-        range = 30;
-    }else if (val_info_range_max <= 50){
-        range = 50;
+    }else if (val_info_range_max <= RFINDER_UART_MEAS_RANGE_10M){
+        range = RFINDER_UART_MEAS_RANGE_10M;
+    }else if (val_info_range_max <= RFINDER_UART_MEAS_RANGE_30M){
+        range = RFINDER_UART_MEAS_RANGE_30M;
+    }else if (val_info_range_max <= RFINDER_UART_MEAS_RANGE_50M){
+        range = RFINDER_UART_MEAS_RANGE_50M;
     }else{
-        range = 80;
+        range = RFINDER_UART_MEAS_RANGE_80M;
     }
 
     if (setRange(range) != 0){
         return false;
     }
 
-    if (setStartPoint(1) != 0){
+    if (setStartPoint(RFINDER_UART_MEAS_FROM_FRONT) != 0){
         return false;
     }
 
-    if (setFreq(10) != 0){
+    if (setFreq(RFINDER_UART_MEAS_FREQ_10Hz) != 0){
         return false;
     }
 
@@ -91,107 +104,113 @@ bool AP_RangeFinder_SK_PulsedLight::detect(RangeFinder &_ranger, uint8_t instanc
 /* 
    update the state of the sensor
 */
+
+// static int16_t _rng_msg_total_cnt = 0;
+// static int16_t _rng_msg_cnt = 0;
+// static int16_t _rng_msg_error_cnt = 0;
+// static int16_t _rng_msg_resync_cnt = 0;
+// static int16_t _rng_msg_checksum_error_cnt = 0;
+size_t AP_RangeFinder_SK_PulsedLight::read_port(uint8_t *buf, uint32_t len) {
+    uint32_t i;
+
+    if (_port->available() < (int16_t)len) {
+        return 0;
+    }
+
+    for (i = 0; i < len; i++) {
+        buf[i] = _port->read();
+    }
+
+    return i;
+}
+void AP_RangeFinder_SK_PulsedLight::re_sync(uint8_t len) {
+    uint8_t i = 0;
+    uint8_t header[3] = {0x80, 0x06, 0x83};
+    uint8_t valid_len = len;
+
+    while (i + 3 <= len) {
+        if (_distance_msg[i] == header[0]
+         && _distance_msg[i + 1] == header[1]
+         && _distance_msg[i + 2] == header[2]){
+            valid_len = len - i;
+            break;
+        }else{
+            i++;
+            valid_len--;
+        }
+    }
+
+    if (valid_len < len){
+        memmove(&_distance_msg, &_distance_msg[len - valid_len], valid_len);
+
+        _msg_pos = (uint8_t*)_distance_msg + valid_len;
+        _bytes_required = len - valid_len;
+    }
+}
 void AP_RangeFinder_SK_PulsedLight::update(void)
 {
-    uint8_t header[3] = {0x80, 0x06, 0x83};
-    int16_t loop_cnt;
     uint8_t checksum;
     uint8_t checksum_index;
     int16_t available = _port->available();
-    uint8_t count = 0;
-    float sum = 0;
 
-    if (available <= 0){
-        return;
-    }
+    while(available >= _bytes_required){
+        if (_bytes_required > 0){
+            read_port(_msg_pos, _bytes_required);
 
-    // read header
-    while (available > 0 && _msg_pos < sizeof(header)){
-        switch(_msg_pos){
-            case 0:
-            {
-                if (_port->read() == header[_msg_pos]){
-                    _distance_msg[_msg_pos++] = header[0];
-                }
-
-                available--;
-            }
-            break;
-            case 1:
-            {
-                if (_port->read() == header[_msg_pos]){
-                    _distance_msg[_msg_pos++] = header[1];
-                }
-
-                available--;
-            }
-            break;
-            case 2:
-            {
-                if (_port->read() == header[_msg_pos]){
-                    _distance_msg[_msg_pos++] = header[2];
-                }
-
-                available--;
-            }
-            break;
-        }
-    }
-
-    do{
-        if (available <= 0 || _msg_pos < sizeof(header)){
-            // still need wait a valid header
-            break;
+            _msg_pos += _bytes_required;
+            available -= _bytes_required;
+            _bytes_required = 0;
         }
 
-        // read 7 bytes payload and 1 byte checksum
-        loop_cnt = 8;
+        size_t curReadLen = _msg_pos - (uint8_t *)_distance_msg;
+        re_sync(curReadLen);
 
-        if (available < loop_cnt){
-            loop_cnt = available;
+        if (_bytes_required != 0){ // not valid msg
+            // _rng_msg_resync_cnt++;
+            continue;
         }
 
-        for (int16_t i = 0; i < loop_cnt; i++){
-            _distance_msg[_msg_pos++] = _port->read();
-            available--;
-        }
+        // reset to start new read
+        _bytes_required = RFINDER_UART_MSG_LEN;
+        _msg_pos = (uint8_t*)_distance_msg;
 
-        if (_msg_pos != sizeof(_distance_msg)){ // not a valid msg at all
-            break;
-        }
-
-        _msg_pos = 0; // to restart receive
-
-        // check valid
+        // check, if msg is valid
         checksum_index = sizeof(_distance_msg) - 1;
         checksum = calcCheckSum(_distance_msg, checksum_index);
 
+        // _rng_msg_total_cnt++;
+
         if (_distance_msg[checksum_index] != checksum){
-            break;
+            // _rng_msg_checksum_error_cnt++;
+            continue;
         }
 
-        // unpack msg
         if (isError(_distance_msg)){
-            break;
+            // _rng_msg_error_cnt++;
+            continue;
         }
 
-        // tran ascii distance to cm
-        sum += (float)asscii2mm(_distance_msg);
-        count++;
-
-        _last_timestamp = hal.scheduler->micros64();
-    }while(available > 0);
-
-    if (count > 0){
-        state.distance_cm = (uint16_t)(sum / ((float)count * 10.0f));
+        // update msg
+        state.distance_cm = asscii2mm(_distance_msg) / 10;
         state.distance_cm += ranger._offset[state.instance];
+        _last_timestamp = hal.scheduler->micros64();
 
         update_status();
+
+        // _rng_msg_cnt++;
     }
 
-    if (hal.scheduler->micros64() - _last_timestamp >= RFINDER_NODATA_TIMEOUT) {
+    // check, if timeout
+    if (hal.scheduler->micros64() - _last_timestamp >= RFINDER_UART_NODATA_TIMEOUT) {
         set_status(RangeFinder::RangeFinder_NoData);
     }
+
+    // printf("re-sync %d total %d checksum %d error %d msg %d\n",
+    //     _rng_msg_resync_cnt,
+    //     _rng_msg_total_cnt,
+    //     _rng_msg_checksum_error_cnt,
+    //     _rng_msg_error_cnt,
+    //     _rng_msg_cnt);
 }
 
 bool AP_RangeFinder_SK_PulsedLight::isError(uint8_t* msg){
