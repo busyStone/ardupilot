@@ -56,6 +56,7 @@ void setup()
     AP_Param::set_object_value(&sonar, sonar.var_info, "_TYPE", RangeFinder::RangeFinder_TYPE_SK_PLUART);
     AP_Param::set_object_value(&sonar, sonar.var_info, "_PIN", -1);
     AP_Param::set_object_value(&sonar, sonar.var_info, "_SCALING", 1.0);
+    AP_Param::set_object_value(&sonar, sonar.var_info, "_OFFSET", 7);
 
     // initialise sensor, delaying to make debug easier
     hal.scheduler->delay(2000);
