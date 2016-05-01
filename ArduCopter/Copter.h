@@ -901,6 +901,7 @@ private:
     void init_aux_switches();
     void init_aux_switch_function(int8_t ch_option, uint8_t ch_flag);
     void do_aux_switch_function(int8_t ch_function, uint8_t ch_flag);
+    void do_ch7_user_function(uint8_t ch_flag);
     void save_trim();
     void auto_trim();
     void init_ardupilot();
