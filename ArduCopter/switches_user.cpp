@@ -70,3 +70,20 @@ void Copter::check_switchs_compass_cal(){
     }
 }
 
+void Copter::do_ch7_user_function(uint8_t ch_flag){
+
+#ifdef CONFIG_ARCH_BOARD_PX4FMU_V3
+    if (ch_flag == AUX_SWITCH_HIGH) {
+        // engage RTL (if not possible we remain in current flight mode)
+        set_mode(RTL);
+    }else if (ch_flag == AUX_SWITCH_MIDDLE){
+        set_mode(LAND);
+    }else{
+        // return to flight mode switch's flight mode if we are currently in RTL
+        if (control_mode == RTL || control_mode == LAND) {
+            reset_control_switch();
+        }
+    }
+#endif
+
+}

@@ -136,7 +136,11 @@ void Copter::read_aux_switches()
         aux_con.CH7_flag = switch_position;
 
         // invoke the appropriate function
-        do_aux_switch_function(g.ch7_option, aux_con.CH7_flag);
+        if (g.ch7_option == AUXSW_DO_NOTHING){
+            do_ch7_user_function(aux_con.CH7_flag);
+        }else{
+            do_aux_switch_function(g.ch7_option, aux_con.CH7_flag);
+        }
     }
 
     // check if Ch8 switch has changed position
