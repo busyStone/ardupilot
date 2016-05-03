@@ -17,9 +17,9 @@ void Copter::check_switchs_compass_cal(){
     uint32_t tnow_ms = millis();
 
     uint8_t pos = read_3pos_switch(g.rc_5.radio_in);
-    
+
     if (m_last_switch_position == -1) { // wait to start check
-    
+
         if (pos == AUX_SWITCH_LOW){
             m_last_switch_position = pos;
             m_last_edge_time_ms = tnow_ms;
@@ -48,7 +48,7 @@ void Copter::check_switchs_compass_cal(){
             if (tnow_ms - m_last_edge_time_ms < 200) {
                 m_last_switch_position = pos;
                 m_last_edge_time_ms = tnow_ms;
-                
+
                 m_compass_switch_cnt++;
             } else {
                 m_last_switch_position = -1; // reset to wait start
@@ -60,7 +60,7 @@ void Copter::check_switchs_compass_cal(){
                 if (!compass.start_calibration_all(false, true, 0.2, false)) {
                     AP_Notify::flags.compass_cal_failed = 1;
                 }
-                    
+
                 m_last_switch_position = -1; // reset to wait start
                 m_compass_switch_cnt = 0;
             }
@@ -75,9 +75,9 @@ void Copter::do_ch7_user_function(uint8_t ch_flag){
 #ifdef CONFIG_ARCH_BOARD_PX4FMU_V3
     if (ch_flag == AUX_SWITCH_HIGH) {
         // engage RTL (if not possible we remain in current flight mode)
-        set_mode(RTL);
-    }else if (ch_flag == AUX_SWITCH_MIDDLE){
         set_mode(LAND);
+    }else if (ch_flag == AUX_SWITCH_MIDDLE){
+        set_mode(RTL);
     }else{
         // return to flight mode switch's flight mode if we are currently in RTL
         if (control_mode == RTL || control_mode == LAND) {
