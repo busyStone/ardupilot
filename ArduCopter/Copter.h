@@ -1,6 +1,6 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#define THISFIRMWARE "SkyBorne:Copter V1.0.2"
+#define THISFIRMWARE "SkyBorne:Copter v1.0.2.beta"
 #define FIRMWARE_VERSION 3,3,2,FIRMWARE_VERSION_TYPE_OFFICIAL
 
 /*
