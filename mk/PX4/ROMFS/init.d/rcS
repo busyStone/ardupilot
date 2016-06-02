@@ -114,13 +114,14 @@ fi
 
 if [ $HAVE_MICROSD == 0 ]
 then
-    if usb_connected
-    then
-        echo "Opening USB nsh"
-    else
-        echo "booting with no microSD"
-        set HAVE_MICROSD 1
-    fi
+    #if usb_connected
+    #then
+    #    echo "Opening USB nsh"
+    #else
+    #    echo "booting with no microSD"
+    #    set HAVE_MICROSD 1
+    #fi
+    set HAVE_MICROSD 1
 fi
 
 # if this is an APM build then there will be a rc.APM script
