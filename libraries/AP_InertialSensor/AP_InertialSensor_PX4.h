@@ -94,6 +94,8 @@ private:
     float _gyro_dt_max[INS_MAX_INSTANCES];
     float _accel_dt_max[INS_MAX_INSTANCES];
 #endif // AP_INERTIALSENSOR_PX4_DEBUG
+
+    float _accel_temperature_scale[INS_MAX_INSTANCES];
 };
 #endif // CONFIG_HAL_BOARD
 #endif // __AP_INERTIAL_SENSOR_PX4_H__

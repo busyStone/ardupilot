@@ -235,6 +235,8 @@ public:
     void set_delta_velocity(uint8_t instance, float deltavt, const Vector3f &deltav);
     void set_delta_angle(uint8_t instance, const Vector3f &deltaa);
 
+    AP_Float    _accel_temperature[INS_MAX_INSTANCES];
+
 private:
 
     // load backend drivers

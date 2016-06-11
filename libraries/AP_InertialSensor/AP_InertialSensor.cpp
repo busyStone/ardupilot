@@ -293,6 +293,13 @@ const AP_Param::GroupInfo AP_InertialSensor::var_info[] PROGMEM = {
       NOTE: parameter indexes have gaps above. When adding new
       parameters check for conflicts carefully
      */
+    AP_GROUPINFO("ACC1TEMP",     23, AP_InertialSensor, _accel_temperature[0],  25),
+#if INS_MAX_INSTANCES > 1
+    AP_GROUPINFO("ACC2TEMP",     24, AP_InertialSensor, _accel_temperature[1],  25),
+#endif
+#if INS_MAX_INSTANCES > 2
+    AP_GROUPINFO("ACC3TEMP",     25, AP_InertialSensor, _accel_temperature[2],  25),
+#endif
 
     AP_GROUPEND
 };
@@ -597,6 +604,8 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
             interact->printf_P(PSTR("Insufficient accel range"));
             continue;
         }
+
+        _accel_temperature[k].set(_temperature[k]);
 
         bool success = _calibrate_accel(samples[k],
                                         new_offsets[k],
@@ -1172,6 +1181,8 @@ void AP_InertialSensor::_save_parameters()
         _accel_scale[i].save();
         _accel_offset[i].save();
         _gyro_offset[i].save();
+
+        _accel_temperature[i].save();
     }
 }
 

@@ -148,6 +148,8 @@ bool AP_InertialSensor_PX4::_init_sensor(void)
                 ioctl(fd, ACCELIOCSSAMPLERATE, 1000);
                 // 10ms queue depth
                 ioctl(fd, SENSORIOCSQUEUEDEPTH, _queue_depth(1000));
+
+                _accel_temperature_scale[i] = 0.0002;
                 break;
             case DRV_ACC_DEVTYPE_LSM303D:
                 // hardware LPF to ~1/10th sample rate for antialiasing
@@ -157,8 +159,11 @@ bool AP_InertialSensor_PX4::_init_sensor(void)
                 ioctl(fd,SENSORIOCSPOLLRATE, 1600);
                 // 10ms queue depth
                 ioctl(fd, SENSORIOCSQUEUEDEPTH, _queue_depth(1600));
+
+                _accel_temperature_scale[i] = 0.0001;
                 break;
             default:
+                _accel_temperature_scale[i] = 0;
                 break;
         }
         // calculate accel sample time
@@ -256,6 +261,16 @@ void AP_InertialSensor_PX4::_new_accel_sample(uint8_t i, accel_report &accel_rep
 {
     Vector3f accel = Vector3f(accel_report.x, accel_report.y, accel_report.z);
     uint8_t frontend_instance = _accel_instance[i];
+
+    ////////////////////////////////////////////////
+    // temperature compensation
+    float compensation = (accel_report.temperature - _imu._accel_temperature[i].get())
+    * _accel_temperature_scale[i] * 16 * GRAVITY_MSS;
+
+    accel.x -= compensation;
+    accel.y -= compensation;
+    accel.z -= compensation;
+    ////////////////////////////////////////////////
 
     // apply corrections
     _rotate_and_correct_accel(frontend_instance, accel);
