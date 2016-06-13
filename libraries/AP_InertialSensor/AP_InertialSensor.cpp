@@ -478,9 +478,16 @@ bool AP_InertialSensor::_calculate_trim(const Vector3f &accel_sample, float& tri
 
 AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_manual(
     AP_InertialSensor_UserInteract* interact,
-    detect_orientation next_orientation){
+    detect_orientation last_orientation){
 
     const prog_char_t *msg;
+
+    detect_orientation next_orientation;
+
+    next_orientation = (detect_orientation)(last_orientation + 1);
+    if (next_orientation >= DETECT_ORIENTATION_ERROR){
+        next_orientation = DETECT_ORIENTATION_LEVEL;
+    }
 
     // display message to user
     switch ( next_orientation ) {
@@ -604,9 +611,15 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
     memset(samples, 0, sizeof(samples));
 
     // capture data from 6 positions
-    detect_orientation orientation;
-    for (uint8_t i=0; i<DETECT_ORIENTATION_SIDE_CNT; i++) {
-        orientation = _detect_orientation_manual(interact, (detect_orientation)i);
+    detect_orientation orientation = DETECT_ORIENTATION_ERROR;
+    bool side_collected[DETECT_ORIENTATION_SIDE_CNT];
+    memset(side_collected, 0, sizeof(side_collected));
+
+    bool is_need_continue;
+    do {
+        is_need_continue = false;
+
+        orientation = _detect_orientation_manual(interact, orientation);
 
         if (orientation == DETECT_ORIENTATION_ERROR) {
             goto failed;
@@ -615,7 +628,16 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
         if (!_collect_samples(interact, num_accels, samples, orientation)){
             goto failed;
         }
-    }
+
+        side_collected[orientation] = true;
+
+        for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
+            if (!side_collected[i]){
+                is_need_continue = true;
+                break;
+            }
+        }
+    }while(is_need_continue);
 
     // run the calibration routine
     for (uint8_t k=0; k<num_accels; k++) {

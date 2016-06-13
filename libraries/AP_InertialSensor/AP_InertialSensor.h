@@ -278,7 +278,7 @@ private:
 
     detect_orientation _detect_orientation_manual(
     AP_InertialSensor_UserInteract* interact,
-    detect_orientation next_orientation);
+    detect_orientation last_orientation);
 
     bool _collect_samples(
     AP_InertialSensor_UserInteract* interact,
