@@ -39,6 +39,7 @@ extern const AP_HAL::HAL& hal;
 
 #define CONSTANTS_ONE_G GRAVITY_MSS
 
+
 // Class level parameters
 const AP_Param::GroupInfo AP_InertialSensor::var_info[] PROGMEM = {
     // @Param: PRODUCT_ID
@@ -673,6 +674,38 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
     return DETECT_ORIENTATION_ERROR;    // Can't detect orientation
 }
 
+void AP_InertialSensor::_detect_orientation_auto_pending_notify(
+    AP_InertialSensor_UserInteract* interact,
+    bool (&side_collected)[DETECT_ORIENTATION_SIDE_CNT]){
+    for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
+        if (!side_collected[i]){
+            switch (i){
+                case DETECT_ORIENTATION_LEFT:
+                    interact->printf_P(PSTR("Pending: left\n"));
+                break;
+                case DETECT_ORIENTATION_RIGHT:
+                    interact->printf_P(PSTR("Pending: right\n"));
+                break;
+                case DETECT_ORIENTATION_NOSE_UP:
+                    interact->printf_P(PSTR("Pending: nose up\n"));
+                break;
+                case DETECT_ORIENTATION_NOSE_DOWN:
+                    interact->printf_P(PSTR("Pending: nose down\n"));
+                break;
+                case DETECT_ORIENTATION_BACK:
+                    interact->printf_P(PSTR("Pending: back\n"));
+                break;
+                case DETECT_ORIENTATION_LEVEL:
+                    interact->printf_P(PSTR("Pending: level\n"));
+                default:
+                break;
+            }
+
+            break;
+        }
+    }
+}
+
 bool AP_InertialSensor::_collect_samples(
     AP_InertialSensor_UserInteract* interact,
     uint8_t num_accels,
@@ -724,7 +757,20 @@ bool AP_InertialSensor::_collect_samples(
 // http://rolfeschmidt.com/mathtools/skimetrics/adxl_gn_calibration.pde
 bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact,
                                         float &trim_roll,
-                                        float &trim_pitch)
+                                        float &trim_pitch){
+    return _calibrate_accel_combine(interact, trim_roll, trim_pitch, false);
+}
+
+bool AP_InertialSensor::calibrate_accel_auto(AP_InertialSensor_UserInteract* interact,
+                                        float &trim_roll,
+                                        float &trim_pitch){
+    return _calibrate_accel_combine(interact, trim_roll, trim_pitch, true);
+}
+
+bool AP_InertialSensor::_calibrate_accel_combine(AP_InertialSensor_UserInteract* interact,
+                                        float &trim_roll,
+                                        float &trim_pitch,
+                                        bool is_auto_detect) // have no idea to use function ptr, so...
 {
     uint8_t num_accels = min(get_accel_count(), INS_MAX_INSTANCES);
     Vector3f samples[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT];
@@ -769,35 +815,15 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
     do {
         is_need_continue = false;
 
-        for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
-            if (!side_collected[i]){
-                switch (i){
-                    case DETECT_ORIENTATION_LEFT:
-                        interact->printf_P(PSTR("Pending: left\n"));
-                    break;
-                    case DETECT_ORIENTATION_RIGHT:
-                        interact->printf_P(PSTR("Pending: right\n"));
-                    break;
-                    case DETECT_ORIENTATION_NOSE_UP:
-                        interact->printf_P(PSTR("Pending: nose up\n"));
-                    break;
-                    case DETECT_ORIENTATION_NOSE_DOWN:
-                        interact->printf_P(PSTR("Pending: nose down\n"));
-                    break;
-                    case DETECT_ORIENTATION_BACK:
-                        interact->printf_P(PSTR("Pending: back\n"));
-                    break;
-                    case DETECT_ORIENTATION_LEVEL:
-                        interact->printf_P(PSTR("Pending: level\n"));
-                    default:
-                    break;
-                }
-
-                break;
-            }
+        if (is_auto_detect){
+            _detect_orientation_auto_pending_notify(interact, side_collected);
         }
 
-        orientation = _detect_orientation_auto(interact, orientation);
+        if (is_auto_detect){
+            orientation = _detect_orientation_auto(interact, orientation);
+        }else {
+            orientation = _detect_orientation_manual(interact, orientation);
+        }
 
         if (orientation == DETECT_ORIENTATION_ERROR) {
             goto failed;

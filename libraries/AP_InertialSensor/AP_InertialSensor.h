@@ -27,7 +27,6 @@
 
 #define DETECT_ORIENTATION_SIDE_CNT  6
 
-
 #include <stdint.h>
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Math/AP_Math.h>
@@ -103,6 +102,9 @@ public:
     // perform accelerometer calibration including providing user instructions
     // and feedback
     bool calibrate_accel(AP_InertialSensor_UserInteract *interact,
+                         float& trim_roll,
+                         float& trim_pitch);
+    bool calibrate_accel_auto(AP_InertialSensor_UserInteract *interact,
                          float& trim_roll,
                          float& trim_pitch);
     bool calibrate_trim(float &trim_roll, float &trim_pitch);
@@ -276,6 +278,13 @@ private:
     // save parameters to eeprom
     void  _save_parameters();
 
+    void _detect_orientation_auto_pending_notify(
+        AP_InertialSensor_UserInteract* interact,
+        bool (&side_collected)[DETECT_ORIENTATION_SIDE_CNT]);
+    bool _calibrate_accel_combine(AP_InertialSensor_UserInteract* interact,
+                                  float &trim_roll,
+                                  float &trim_pitch,
+                                  bool is_auto_detect);
     detect_orientation _detect_orientation_manual(
         AP_InertialSensor_UserInteract* interact,
         detect_orientation last_orientation);
