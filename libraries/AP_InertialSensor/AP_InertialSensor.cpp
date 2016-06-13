@@ -37,6 +37,8 @@ extern const AP_HAL::HAL& hal;
 
 #define SAMPLE_UNIT 1
 
+#define CONSTANTS_ONE_G GRAVITY_MSS
+
 // Class level parameters
 const AP_Param::GroupInfo AP_InertialSensor::var_info[] PROGMEM = {
     // @Param: PRODUCT_ID
@@ -523,6 +525,154 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_man
     return next_orientation;
 }
 
+AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_auto(
+    AP_InertialSensor_UserInteract* interact,
+    detect_orientation last_orientation){
+
+    const unsigned ndim = 3;
+
+    bool lenient_still_position = false;
+    float       accel_ema[ndim] = { 0.0f };     // exponential moving average of accel
+    float       accel_disp[3] = { 0.0f, 0.0f, 0.0f };   // max-hold dispersion of accel
+    float       ema_len = 0.5f;             // EMA time constant in seconds
+    const float normal_still_thr = 0.25;        // normal still threshold
+    float       still_thr2 = powf(lenient_still_position ? (normal_still_thr * 3) : normal_still_thr, 2);
+    float       accel_err_thr = 5.0f;           // set accel error threshold to 5m/s^2
+    uint64_t still_time = lenient_still_position ? 1000000 : 1500000;    // still time required in us
+
+    uint64_t t_start = hal.scheduler->micros64();
+    /* set timeout to 30s */
+    uint64_t timeout = 30000000;
+    uint64_t t_timeout = t_start + timeout;
+    uint64_t t = t_start;
+    uint64_t t_prev = t_start;
+    uint64_t t_still = 0;
+
+    // const uint8_t update_dt_milliseconds = (uint8_t)(1000.0f/get_sample_rate()+0.5f);
+
+    Vector3f samp;
+
+    while (true) {
+        wait_for_sample();
+        update();
+
+        samp = get_accel(0);
+        t = hal.scheduler->micros64();
+        float dt = (t - t_prev) / 1000000.0f;
+        t_prev = t;
+        float w = dt / ema_len;
+
+        for (unsigned i = 0; i < ndim; i++) {
+
+            float di = 0.0f;
+            switch (i) {
+                case 0:
+                    di = samp.x;
+                    break;
+                case 1:
+                    di = samp.y;
+                    break;
+                case 2:
+                    di = samp.z;
+                    break;
+            }
+
+            float d = di - accel_ema[i];
+            accel_ema[i] += d * w;
+            d = d * d;
+            accel_disp[i] = accel_disp[i] * (1.0f - w);
+
+            if (d > still_thr2 * 8.0f) {
+                d = still_thr2 * 8.0f;
+            }
+
+            if (d > accel_disp[i]) {
+                accel_disp[i] = d;
+            }
+        }
+
+        /* still detector with hysteresis */
+        if (accel_disp[0] < still_thr2 &&
+            accel_disp[1] < still_thr2 &&
+            accel_disp[2] < still_thr2) {
+            /* is still now */
+            if (t_still == 0) {
+                /* first time */
+                interact->printf_P(PSTR("%s\n"), "detected rest position, hold still...");
+
+                t_still = t;
+                t_timeout = t + timeout;
+            } else {
+                /* still since t_still */
+                if (t > t_still + still_time) {
+                    /* vehicle is still, exit from the loop to detection of its orientation */
+                    break;
+                }
+            }
+        } else if (accel_disp[0] > still_thr2 * 4.0f ||
+               accel_disp[1] > still_thr2 * 4.0f ||
+               accel_disp[2] > still_thr2 * 4.0f) {
+            /* not still, reset still start time */
+            if (t_still != 0) {
+                interact->printf_P(PSTR("%s\n"), "detected motion, hold still...");
+
+                hal.scheduler->delay(500);
+                t_still = 0;
+            }
+        }
+
+        if (t > t_timeout) {
+            return DETECT_ORIENTATION_ERROR;
+        }
+    }
+
+    if (fabsf(accel_ema[0] - CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        interact->printf_P(PSTR("%s\n"), "detected nose up");
+        return DETECT_ORIENTATION_NOSE_UP;        // [ g, 0, 0 ]
+    }
+
+    if (fabsf(accel_ema[0] + CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        interact->printf_P(PSTR("%s\n"), "detected nose down");
+        return DETECT_ORIENTATION_NOSE_DOWN;        // [ -g, 0, 0 ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1] - CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        interact->printf_P(PSTR("%s\n"), "detected left");
+        return DETECT_ORIENTATION_LEFT;        // [ 0, g, 0 ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1] + CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        interact->printf_P(PSTR("%s\n"), "detected right");
+        return DETECT_ORIENTATION_RIGHT;        // [ 0, -g, 0 ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2] - CONSTANTS_ONE_G) < accel_err_thr) {
+        interact->printf_P(PSTR("%s\n"), "detected back");
+        return DETECT_ORIENTATION_BACK;        // [ 0, 0, g ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2] + CONSTANTS_ONE_G) < accel_err_thr) {
+        interact->printf_P(PSTR("%s\n"), "detected level");
+        return DETECT_ORIENTATION_LEVEL;        // [ 0, 0, -g ]
+    }
+
+    interact->printf_P(PSTR("%s\n"), "ERROR: invalid orientation");
+
+    return DETECT_ORIENTATION_ERROR;    // Can't detect orientation
+}
+
 bool AP_InertialSensor::_collect_samples(
     AP_InertialSensor_UserInteract* interact,
     uint8_t num_accels,
@@ -619,7 +769,35 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
     do {
         is_need_continue = false;
 
-        orientation = _detect_orientation_manual(interact, orientation);
+        for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
+            if (!side_collected[i]){
+                switch (i){
+                    case DETECT_ORIENTATION_LEFT:
+                        interact->printf_P(PSTR("Pending: left\n"));
+                    break;
+                    case DETECT_ORIENTATION_RIGHT:
+                        interact->printf_P(PSTR("Pending: right\n"));
+                    break;
+                    case DETECT_ORIENTATION_NOSE_UP:
+                        interact->printf_P(PSTR("Pending: nose up\n"));
+                    break;
+                    case DETECT_ORIENTATION_NOSE_DOWN:
+                        interact->printf_P(PSTR("Pending: nose down\n"));
+                    break;
+                    case DETECT_ORIENTATION_BACK:
+                        interact->printf_P(PSTR("Pending: back\n"));
+                    break;
+                    case DETECT_ORIENTATION_LEVEL:
+                        interact->printf_P(PSTR("Pending: level\n"));
+                    default:
+                    break;
+                }
+
+                break;
+            }
+        }
+
+        orientation = _detect_orientation_auto(interact, orientation);
 
         if (orientation == DETECT_ORIENTATION_ERROR) {
             goto failed;
@@ -627,6 +805,12 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
 
         if (!_collect_samples(interact, num_accels, samples, orientation)){
             goto failed;
+        }
+
+        if (side_collected[orientation]){
+            interact->printf_P(PSTR("This side had been collected\n"));
+            is_need_continue = true;
+            continue;
         }
 
         side_collected[orientation] = true;
@@ -642,7 +826,7 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
     // run the calibration routine
     for (uint8_t k=0; k<num_accels; k++) {
         if (!_check_sample_range(samples[k], saved_orientation, interact)) {
-            interact->printf_P(PSTR("Insufficient accel range"));
+            interact->printf_P(PSTR("Insufficient accel range\n"));
             continue;
         }
 

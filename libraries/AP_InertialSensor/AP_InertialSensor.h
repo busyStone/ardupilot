@@ -277,14 +277,17 @@ private:
     void  _save_parameters();
 
     detect_orientation _detect_orientation_manual(
-    AP_InertialSensor_UserInteract* interact,
-    detect_orientation last_orientation);
+        AP_InertialSensor_UserInteract* interact,
+        detect_orientation last_orientation);
+    detect_orientation _detect_orientation_auto(
+        AP_InertialSensor_UserInteract* interact,
+        detect_orientation last_orientation);
 
     bool _collect_samples(
-    AP_InertialSensor_UserInteract* interact,
-    uint8_t num_accels,
-    Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
-    detect_orientation current_orientation);
+        AP_InertialSensor_UserInteract* interact,
+        uint8_t num_accels,
+        Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
+        detect_orientation current_orientation);
 
     // backend objects
     AP_InertialSensor_Backend *_backends[INS_MAX_BACKENDS];
