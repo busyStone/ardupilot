@@ -476,6 +476,89 @@ bool AP_InertialSensor::_calculate_trim(const Vector3f &accel_sample, float& tri
     return true;
 }
 
+AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_manual(
+    AP_InertialSensor_UserInteract* interact,
+    detect_orientation next_orientation){
+
+    const prog_char_t *msg;
+
+    // display message to user
+    switch ( next_orientation ) {
+        case DETECT_ORIENTATION_LEVEL:
+            msg = PSTR("level");
+            break;
+        case DETECT_ORIENTATION_LEFT:
+            msg = PSTR("on its LEFT side");
+            break;
+        case DETECT_ORIENTATION_RIGHT:
+            msg = PSTR("on its RIGHT side");
+            break;
+        case DETECT_ORIENTATION_NOSE_DOWN:
+            msg = PSTR("nose DOWN");
+            break;
+        case DETECT_ORIENTATION_NOSE_UP:
+            msg = PSTR("nose UP");
+            break;
+        default:    // default added to avoid compiler warning
+        case DETECT_ORIENTATION_BACK:
+            msg = PSTR("on its BACK");
+            break;
+    }
+    interact->printf_P(
+            PSTR("Place vehicle %S and press any key.\n"), msg);
+
+    // wait for user input
+    if (!interact->blocking_read()) {
+        //No need to use interact->printf_P for an error, blocking_read does this when it fails
+        return DETECT_ORIENTATION_ERROR;
+    }
+
+    return next_orientation;
+}
+
+bool AP_InertialSensor::_collect_samples(
+    AP_InertialSensor_UserInteract* interact,
+    uint8_t num_accels,
+    Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
+    detect_orientation current_orientation){
+    const uint8_t update_dt_milliseconds = (uint8_t)(1000.0f/get_sample_rate()+0.5f);
+
+    // wait 100ms for ins filter to rise
+    for (uint8_t k=0; k<100/update_dt_milliseconds; k++) {
+        wait_for_sample();
+        update();
+        hal.scheduler->delay(update_dt_milliseconds);
+    }
+
+    uint32_t num_samples = 0;
+    while (num_samples < 400/update_dt_milliseconds) {
+        wait_for_sample();
+        // read samples from ins
+        update();
+        // capture sample
+        for (uint8_t k=0; k<num_accels; k++) {
+            Vector3f samp;
+            if(get_delta_velocity(k,samp) && _delta_velocity_dt[k] > 0) {
+                samp /= _delta_velocity_dt[k];
+            } else {
+                samp = get_accel(k);
+            }
+            samples[k][current_orientation] += samp;
+            if (!get_accel_health(k)) {
+                interact->printf_P(PSTR("accel[%u] not healthy"), (unsigned)k);
+                return false;
+            }
+        }
+        hal.scheduler->delay(update_dt_milliseconds);
+        num_samples++;
+    }
+    for (uint8_t k=0; k<num_accels; k++) {
+        samples[k][current_orientation] /= num_samples;
+    }
+
+    return true;
+}
+
 // calibrate_accel - perform accelerometer calibration including providing user
 // instructions and feedback Gauss-Newton accel calibration routines borrowed
 // from Rolfe Schmidt blog post describing the method:
@@ -487,7 +570,7 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
                                         float &trim_pitch)
 {
     uint8_t num_accels = min(get_accel_count(), INS_MAX_INSTANCES);
-    Vector3f samples[INS_MAX_INSTANCES][6];
+    Vector3f samples[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT];
     Vector3f new_offsets[INS_MAX_INSTANCES];
     Vector3f new_scaling[INS_MAX_INSTANCES];
     Vector3f orig_offset[INS_MAX_INSTANCES];
@@ -521,73 +604,16 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
     memset(samples, 0, sizeof(samples));
 
     // capture data from 6 positions
-    for (uint8_t i=0; i<6; i++) {
-        const prog_char_t *msg;
+    detect_orientation orientation;
+    for (uint8_t i=0; i<DETECT_ORIENTATION_SIDE_CNT; i++) {
+        orientation = _detect_orientation_manual(interact, (detect_orientation)i);
 
-        // display message to user
-        switch ( i ) {
-            case 0:
-                msg = PSTR("level");
-                break;
-            case 1:
-                msg = PSTR("on its LEFT side");
-                break;
-            case 2:
-                msg = PSTR("on its RIGHT side");
-                break;
-            case 3:
-                msg = PSTR("nose DOWN");
-                break;
-            case 4:
-                msg = PSTR("nose UP");
-                break;
-            default:    // default added to avoid compiler warning
-            case 5:
-                msg = PSTR("on its BACK");
-                break;
-        }
-        interact->printf_P(
-                PSTR("Place vehicle %S and press any key.\n"), msg);
-
-        // wait for user input
-        if (!interact->blocking_read()) {
-            //No need to use interact->printf_P for an error, blocking_read does this when it fails
+        if (orientation == DETECT_ORIENTATION_ERROR) {
             goto failed;
         }
 
-        const uint8_t update_dt_milliseconds = (uint8_t)(1000.0f/get_sample_rate()+0.5f);
-
-        // wait 100ms for ins filter to rise
-        for (uint8_t k=0; k<100/update_dt_milliseconds; k++) {
-            wait_for_sample();
-            update();
-            hal.scheduler->delay(update_dt_milliseconds);
-        }
-
-        uint32_t num_samples = 0;
-        while (num_samples < 400/update_dt_milliseconds) {
-            wait_for_sample();
-            // read samples from ins
-            update();
-            // capture sample
-            for (uint8_t k=0; k<num_accels; k++) {
-                Vector3f samp;
-                if(get_delta_velocity(k,samp) && _delta_velocity_dt[k] > 0) {
-                    samp /= _delta_velocity_dt[k];
-                } else {
-                    samp = get_accel(k);
-                }
-                samples[k][i] += samp;
-                if (!get_accel_health(k)) {
-                    interact->printf_P(PSTR("accel[%u] not healthy"), (unsigned)k);
-                    goto failed;
-                }
-            }
-            hal.scheduler->delay(update_dt_milliseconds);
-            num_samples++;
-        }
-        for (uint8_t k=0; k<num_accels; k++) {
-            samples[k][i] /= num_samples;
+        if (!_collect_samples(interact, num_accels, samples, orientation)){
+            goto failed;
         }
     }
 

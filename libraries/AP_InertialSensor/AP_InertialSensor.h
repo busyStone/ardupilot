@@ -25,6 +25,8 @@
 #define INS_VIBRATION_CHECK 0
 #endif
 
+#define DETECT_ORIENTATION_SIDE_CNT  6
+
 
 #include <stdint.h>
 #include <AP_HAL/AP_HAL.h>
@@ -65,6 +67,16 @@ public:
         RATE_100HZ = 100,
         RATE_200HZ = 200,
         RATE_400HZ = 400
+    };
+
+    enum detect_orientation {
+        DETECT_ORIENTATION_LEVEL,
+        DETECT_ORIENTATION_LEFT,
+        DETECT_ORIENTATION_RIGHT,
+        DETECT_ORIENTATION_NOSE_DOWN,
+        DETECT_ORIENTATION_NOSE_UP,
+        DETECT_ORIENTATION_BACK,
+        DETECT_ORIENTATION_ERROR
     };
 
     /// Perform startup initialisation.
@@ -263,6 +275,16 @@ private:
 
     // save parameters to eeprom
     void  _save_parameters();
+
+    detect_orientation _detect_orientation_manual(
+    AP_InertialSensor_UserInteract* interact,
+    detect_orientation next_orientation);
+
+    bool _collect_samples(
+    AP_InertialSensor_UserInteract* interact,
+    uint8_t num_accels,
+    Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
+    detect_orientation current_orientation);
 
     // backend objects
     AP_InertialSensor_Backend *_backends[INS_MAX_BACKENDS];
