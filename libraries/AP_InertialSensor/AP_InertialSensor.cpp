@@ -554,7 +554,6 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
     Vector3f samp;
 
     while (true) {
-        wait_for_sample();
         update();
 
         samp = get_accel(0);
@@ -715,14 +714,12 @@ bool AP_InertialSensor::_collect_samples(
 
     // wait 100ms for ins filter to rise
     for (uint8_t k=0; k<100/update_dt_milliseconds; k++) {
-        wait_for_sample();
         update();
         hal.scheduler->delay(update_dt_milliseconds);
     }
 
     uint32_t num_samples = 0;
     while (num_samples < 400/update_dt_milliseconds) {
-        wait_for_sample();
         // read samples from ins
         update();
         // capture sample
@@ -1004,14 +1001,12 @@ bool AP_InertialSensor::calibrate_trim(float &trim_roll, float &trim_pitch)
 
     // wait 100ms for ins filter to rise
     for (uint8_t k=0; k<100/update_dt_milliseconds; k++) {
-        wait_for_sample();
         update();
         hal.scheduler->delay(update_dt_milliseconds);
     }
 
     uint32_t num_samples = 0;
     while (num_samples < 400/update_dt_milliseconds) {
-        wait_for_sample();
         // read samples from ins
         update();
         // capture sample
