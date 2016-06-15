@@ -115,9 +115,8 @@ public:
     bool calibrate_accel(AP_InertialSensor_UserInteract *interact,
                          float& trim_roll,
                          float& trim_pitch);
-    bool calibrate_accel_auto(AP_InertialSensor_UserInteract *interact,
-                         float& trim_roll,
-                         float& trim_pitch);
+    bool calibrate_accel_auto(AP_InertialSensor_UserInteract *interact);
+    bool calibrate_accel_update(float &trim_roll, float &trim_pitch);
     bool calibrate_trim(float &trim_roll, float &trim_pitch);
 
     /// calibrating - returns true if the gyros or accels are currently being calibrated

@@ -531,6 +531,7 @@ private:
 
     void compass_accumulate(void);
     void compass_cal_update(void);
+    void accel_cal_update(void);
     void barometer_accumulate(void);
     void perf_update(void);
     void fast_loop();

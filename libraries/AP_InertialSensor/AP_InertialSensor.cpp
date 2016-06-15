@@ -486,6 +486,9 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
                                         float &trim_roll,
                                         float &trim_pitch){
     if (!_calibrate_accel_start(interact)){
+        if (interact){
+            interact->printf_P(PSTR("In calibrating"));
+        }
         return false;
     }
 
@@ -512,9 +515,27 @@ bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact
     return false;
 }
 
-bool AP_InertialSensor::calibrate_accel_auto(AP_InertialSensor_UserInteract* interact,
-                                        float &trim_roll,
-                                        float &trim_pitch){
+bool AP_InertialSensor::calibrate_accel_auto(AP_InertialSensor_UserInteract* interact){
+    if (!_calibrate_accel_start(interact)){
+        if (interact){
+            interact->printf_P(PSTR("In calibrating"));
+        }
+        return false;
+    }
+
+    return true;
+}
+
+// return true, should call ahrs.set_trim
+bool AP_InertialSensor::calibrate_accel_update(float &trim_roll, float &trim_pitch){
+    accel_calibrate_step step = _calibrate_accel_update(true);
+    if (step == ACCEL_CAL_STEP_SUCCESS){
+        trim_roll = _calibrate_accel_param.trim_roll;
+        trim_pitch = _calibrate_accel_param.trim_pitch;
+
+        return true;
+    }
+
     return false;
 }
 

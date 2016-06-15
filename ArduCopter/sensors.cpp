@@ -188,6 +188,16 @@ void Copter::compass_cal_update()
     }
 }
 
+void Copter::accel_cal_update(void){
+    float trim_roll, trim_pitch;
+
+    if (!hal.util->get_soft_armed()) {
+        if (ins.calibrate_accel_update(trim_roll, trim_pitch)){
+            ahrs.set_trim(Vector3f(trim_roll, trim_pitch, 0));
+        }
+    }
+}
+
 #if EPM_ENABLED == ENABLED
 // epm update - moves epm pwm output back to neutral after grab or release is completed
 void Copter::epm_update()
