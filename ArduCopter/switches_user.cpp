@@ -86,6 +86,8 @@ bool Copter::_check_switchs_cal(check_switchs_cal_s* param, int16_t radio_in){
 
          return false;
     }
+
+    return false;
 }
 
 void Copter::do_ch7_user_function(uint8_t ch_flag){
