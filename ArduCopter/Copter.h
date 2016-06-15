@@ -893,7 +893,6 @@ private:
     void print_enabled(bool b);
     void report_version();
     void read_control_switch();
-    void check_switchs_compass_cal();
     bool check_if_auxsw_mode_used(uint8_t auxsw_mode_check);
     bool check_duplicate_auxsw(void);
     void reset_control_switch();
@@ -968,6 +967,16 @@ private:
     void log_init(void);
     void run_cli(AP_HAL::UARTDriver *port);
     void init_capabilities(void);
+
+    struct check_switchs_cal_s {
+        int8_t   last_switch_position;
+        uint32_t last_edge_time_ms;
+        uint8_t  switch_cnt;
+    };
+    check_switchs_cal_s _check_compass_cal = {-1, 0, 0};
+    check_switchs_cal_s _check_accel_cal = {-1, 0, 0};
+    void check_switchs_user(void);
+    bool _check_switchs_cal(check_switchs_cal_s* param, int16_t radio_in);
 
 public:
     void mavlink_delay_cb();

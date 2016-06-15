@@ -1,72 +1,90 @@
 
 #include "Copter.h"
 
-static int8_t m_last_switch_position = -1;
-static uint32_t m_last_edge_time_ms;
-static uint8_t m_compass_switch_cnt = 0;
 
-void Copter::check_switchs_compass_cal(){
+static AP_InertialSensor_UserInteract_MAVLink* m_mav_interact;
+
+void Copter::check_switchs_user(void){
+    // check compass cal
+    if (!ins.calibrating()){
+        if (_check_switchs_cal(&_check_compass_cal, g.rc_5.radio_in)){
+            if (!compass.start_calibration_all(false, true, 0.2, false)) {
+                AP_Notify::flags.compass_cal_failed = 1;
+            }
+        }
+    }
+
+    // check accel cal
+    if (!compass.is_calibrating()){
+        if (_check_switchs_cal(&_check_accel_cal, g.rc_7.radio_in)){
+            if (m_mav_interact == NULL){
+                m_mav_interact = new AP_InertialSensor_UserInteract_MAVLink(NULL, gcs);
+            }
+
+            ins.calibrate_accel_auto(m_mav_interact);
+        }
+    }
+}
+
+bool Copter::_check_switchs_cal(check_switchs_cal_s* param, int16_t radio_in){
 
     bool is_failsafe = failsafe.radio || failsafe.radio_counter != 0;
 
     // to fail fast
     if (hal.util->get_soft_armed() || is_failsafe) {
-        return;
+        return false;
     }
 
     uint32_t tnow_ms = millis();
 
-    uint8_t pos = read_3pos_switch(g.rc_5.radio_in);
+    uint8_t pos = read_3pos_switch(radio_in);
 
-    if (m_last_switch_position == -1) { // wait to start check
+    if (param->last_switch_position == -1) { // wait to start check
 
         if (pos == AUX_SWITCH_LOW){
-            m_last_switch_position = pos;
-            m_last_edge_time_ms = tnow_ms;
+            param->last_switch_position = pos;
+            param->last_edge_time_ms = tnow_ms;
         }
 
-        return;
+        return false;
     }
 
 
-    if (m_last_switch_position == AUX_SWITCH_LOW) { // wait for HIGH
+    if (param->last_switch_position == AUX_SWITCH_LOW) { // wait for HIGH
         if (pos == AUX_SWITCH_HIGH) {
-            if (tnow_ms - m_last_edge_time_ms < 200) {
-                m_last_switch_position = pos;
-                m_last_edge_time_ms = tnow_ms;
+            if (tnow_ms - param->last_edge_time_ms < 200) {
+                param->last_switch_position = pos;
+                param->last_edge_time_ms = tnow_ms;
             } else {
-                m_last_switch_position = -1; // reset to wait start
-                m_compass_switch_cnt = 0;
+                param->last_switch_position = -1; // reset to wait start
+                param->switch_cnt = 0;
             }
         }
 
-        return;
+        return false;
     }
 
-    if (m_last_switch_position == AUX_SWITCH_HIGH) { // wait for LOW
+    if (param->last_switch_position == AUX_SWITCH_HIGH) { // wait for LOW
         if (pos == AUX_SWITCH_LOW) {
-            if (tnow_ms - m_last_edge_time_ms < 200) {
-                m_last_switch_position = pos;
-                m_last_edge_time_ms = tnow_ms;
+            if (tnow_ms - param->last_edge_time_ms < 200) {
+                param->last_switch_position = pos;
+                param->last_edge_time_ms = tnow_ms;
 
-                m_compass_switch_cnt++;
+                param->switch_cnt++;
             } else {
-                m_last_switch_position = -1; // reset to wait start
-                m_compass_switch_cnt = 0;
+                param->last_switch_position = -1; // reset to wait start
+                param->switch_cnt = 0;
             }
 
-            if (m_compass_switch_cnt >= 3) {
+            if (param->switch_cnt >= 3) {
+                param->last_switch_position = -1; // reset to wait start
+                param->switch_cnt = 0;
 
-                if (!compass.start_calibration_all(false, true, 0.2, false)) {
-                    AP_Notify::flags.compass_cal_failed = 1;
-                }
-
-                m_last_switch_position = -1; // reset to wait start
-                m_compass_switch_cnt = 0;
+                return true;
             }
         }
 
-         return;
+         return false;
     }
 }
 

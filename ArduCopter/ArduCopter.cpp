@@ -289,7 +289,7 @@ void Copter::rc_loop()
     // Read radio and 3-position switch on radio
     // -----------------------------------------
     read_radio();
-    check_switchs_compass_cal();
+    check_switchs_user();
     read_control_switch();
 }
 
