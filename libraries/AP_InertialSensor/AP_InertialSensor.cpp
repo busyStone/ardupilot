@@ -37,9 +37,6 @@ extern const AP_HAL::HAL& hal;
 
 #define SAMPLE_UNIT 1
 
-#define CONSTANTS_ONE_G GRAVITY_MSS
-
-
 // Class level parameters
 const AP_Param::GroupInfo AP_InertialSensor::var_info[] PROGMEM = {
     // @Param: PRODUCT_ID
@@ -479,273 +476,6 @@ bool AP_InertialSensor::_calculate_trim(const Vector3f &accel_sample, float& tri
     return true;
 }
 
-AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_manual(
-    AP_InertialSensor_UserInteract* interact,
-    detect_orientation last_orientation){
-
-    const prog_char_t *msg;
-
-    detect_orientation next_orientation;
-
-    next_orientation = (detect_orientation)(last_orientation + 1);
-    if (next_orientation >= DETECT_ORIENTATION_ERROR){
-        next_orientation = DETECT_ORIENTATION_LEVEL;
-    }
-
-    // display message to user
-    switch ( next_orientation ) {
-        case DETECT_ORIENTATION_LEVEL:
-            msg = PSTR("level");
-            break;
-        case DETECT_ORIENTATION_LEFT:
-            msg = PSTR("on its LEFT side");
-            break;
-        case DETECT_ORIENTATION_RIGHT:
-            msg = PSTR("on its RIGHT side");
-            break;
-        case DETECT_ORIENTATION_NOSE_DOWN:
-            msg = PSTR("nose DOWN");
-            break;
-        case DETECT_ORIENTATION_NOSE_UP:
-            msg = PSTR("nose UP");
-            break;
-        default:    // default added to avoid compiler warning
-        case DETECT_ORIENTATION_BACK:
-            msg = PSTR("on its BACK");
-            break;
-    }
-    interact->printf_P(
-            PSTR("Place vehicle %S and press any key.\n"), msg);
-
-    // wait for user input
-    if (!interact->blocking_read()) {
-        //No need to use interact->printf_P for an error, blocking_read does this when it fails
-        return DETECT_ORIENTATION_ERROR;
-    }
-
-    return next_orientation;
-}
-
-AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_auto(
-    AP_InertialSensor_UserInteract* interact,
-    detect_orientation last_orientation){
-
-    const unsigned ndim = 3;
-
-    bool lenient_still_position = false;
-    float       accel_ema[ndim] = { 0.0f };     // exponential moving average of accel
-    float       accel_disp[3] = { 0.0f, 0.0f, 0.0f };   // max-hold dispersion of accel
-    float       ema_len = 0.5f;             // EMA time constant in seconds
-    const float normal_still_thr = 0.25;        // normal still threshold
-    float       still_thr2 = powf(lenient_still_position ? (normal_still_thr * 3) : normal_still_thr, 2);
-    float       accel_err_thr = 5.0f;           // set accel error threshold to 5m/s^2
-    uint64_t still_time = lenient_still_position ? 1000000 : 1500000;    // still time required in us
-
-    uint64_t t_start = hal.scheduler->micros64();
-    /* set timeout to 30s */
-    uint64_t timeout = 30000000;
-    uint64_t t_timeout = t_start + timeout;
-    uint64_t t = t_start;
-    uint64_t t_prev = t_start;
-    uint64_t t_still = 0;
-
-    // const uint8_t update_dt_milliseconds = (uint8_t)(1000.0f/get_sample_rate()+0.5f);
-
-    Vector3f samp;
-
-    while (true) {
-        update();
-
-        samp = get_accel(0);
-        t = hal.scheduler->micros64();
-        float dt = (t - t_prev) / 1000000.0f;
-        t_prev = t;
-        float w = dt / ema_len;
-
-        for (unsigned i = 0; i < ndim; i++) {
-
-            float di = 0.0f;
-            switch (i) {
-                case 0:
-                    di = samp.x;
-                    break;
-                case 1:
-                    di = samp.y;
-                    break;
-                case 2:
-                    di = samp.z;
-                    break;
-            }
-
-            float d = di - accel_ema[i];
-            accel_ema[i] += d * w;
-            d = d * d;
-            accel_disp[i] = accel_disp[i] * (1.0f - w);
-
-            if (d > still_thr2 * 8.0f) {
-                d = still_thr2 * 8.0f;
-            }
-
-            if (d > accel_disp[i]) {
-                accel_disp[i] = d;
-            }
-        }
-
-        /* still detector with hysteresis */
-        if (accel_disp[0] < still_thr2 &&
-            accel_disp[1] < still_thr2 &&
-            accel_disp[2] < still_thr2) {
-            /* is still now */
-            if (t_still == 0) {
-                /* first time */
-                interact->printf_P(PSTR("%s\n"), "detected rest position, hold still...");
-
-                t_still = t;
-                t_timeout = t + timeout;
-            } else {
-                /* still since t_still */
-                if (t > t_still + still_time) {
-                    /* vehicle is still, exit from the loop to detection of its orientation */
-                    break;
-                }
-            }
-        } else if (accel_disp[0] > still_thr2 * 4.0f ||
-               accel_disp[1] > still_thr2 * 4.0f ||
-               accel_disp[2] > still_thr2 * 4.0f) {
-            /* not still, reset still start time */
-            if (t_still != 0) {
-                interact->printf_P(PSTR("%s\n"), "detected motion, hold still...");
-
-                hal.scheduler->delay(500);
-                t_still = 0;
-            }
-        }
-
-        if (t > t_timeout) {
-            return DETECT_ORIENTATION_ERROR;
-        }
-    }
-
-    if (fabsf(accel_ema[0] - CONSTANTS_ONE_G) < accel_err_thr &&
-        fabsf(accel_ema[1]) < accel_err_thr &&
-        fabsf(accel_ema[2]) < accel_err_thr) {
-        interact->printf_P(PSTR("%s\n"), "detected nose up");
-        return DETECT_ORIENTATION_NOSE_UP;        // [ g, 0, 0 ]
-    }
-
-    if (fabsf(accel_ema[0] + CONSTANTS_ONE_G) < accel_err_thr &&
-        fabsf(accel_ema[1]) < accel_err_thr &&
-        fabsf(accel_ema[2]) < accel_err_thr) {
-        interact->printf_P(PSTR("%s\n"), "detected nose down");
-        return DETECT_ORIENTATION_NOSE_DOWN;        // [ -g, 0, 0 ]
-    }
-
-    if (fabsf(accel_ema[0]) < accel_err_thr &&
-        fabsf(accel_ema[1] - CONSTANTS_ONE_G) < accel_err_thr &&
-        fabsf(accel_ema[2]) < accel_err_thr) {
-        interact->printf_P(PSTR("%s\n"), "detected left");
-        return DETECT_ORIENTATION_LEFT;        // [ 0, g, 0 ]
-    }
-
-    if (fabsf(accel_ema[0]) < accel_err_thr &&
-        fabsf(accel_ema[1] + CONSTANTS_ONE_G) < accel_err_thr &&
-        fabsf(accel_ema[2]) < accel_err_thr) {
-        interact->printf_P(PSTR("%s\n"), "detected right");
-        return DETECT_ORIENTATION_RIGHT;        // [ 0, -g, 0 ]
-    }
-
-    if (fabsf(accel_ema[0]) < accel_err_thr &&
-        fabsf(accel_ema[1]) < accel_err_thr &&
-        fabsf(accel_ema[2] - CONSTANTS_ONE_G) < accel_err_thr) {
-        interact->printf_P(PSTR("%s\n"), "detected back");
-        return DETECT_ORIENTATION_BACK;        // [ 0, 0, g ]
-    }
-
-    if (fabsf(accel_ema[0]) < accel_err_thr &&
-        fabsf(accel_ema[1]) < accel_err_thr &&
-        fabsf(accel_ema[2] + CONSTANTS_ONE_G) < accel_err_thr) {
-        interact->printf_P(PSTR("%s\n"), "detected level");
-        return DETECT_ORIENTATION_LEVEL;        // [ 0, 0, -g ]
-    }
-
-    interact->printf_P(PSTR("%s\n"), "ERROR: invalid orientation");
-
-    return DETECT_ORIENTATION_ERROR;    // Can't detect orientation
-}
-
-void AP_InertialSensor::_detect_orientation_auto_pending_notify(
-    AP_InertialSensor_UserInteract* interact,
-    bool (&side_collected)[DETECT_ORIENTATION_SIDE_CNT]){
-    for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
-        if (!side_collected[i]){
-            switch (i){
-                case DETECT_ORIENTATION_LEFT:
-                    interact->printf_P(PSTR("Pending: left\n"));
-                break;
-                case DETECT_ORIENTATION_RIGHT:
-                    interact->printf_P(PSTR("Pending: right\n"));
-                break;
-                case DETECT_ORIENTATION_NOSE_UP:
-                    interact->printf_P(PSTR("Pending: nose up\n"));
-                break;
-                case DETECT_ORIENTATION_NOSE_DOWN:
-                    interact->printf_P(PSTR("Pending: nose down\n"));
-                break;
-                case DETECT_ORIENTATION_BACK:
-                    interact->printf_P(PSTR("Pending: back\n"));
-                break;
-                case DETECT_ORIENTATION_LEVEL:
-                    interact->printf_P(PSTR("Pending: level\n"));
-                default:
-                break;
-            }
-
-            break;
-        }
-    }
-}
-
-bool AP_InertialSensor::_collect_samples(
-    AP_InertialSensor_UserInteract* interact,
-    uint8_t num_accels,
-    Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
-    detect_orientation current_orientation){
-    const uint8_t update_dt_milliseconds = (uint8_t)(1000.0f/get_sample_rate()+0.5f);
-
-    // wait 100ms for ins filter to rise
-    for (uint8_t k=0; k<100/update_dt_milliseconds; k++) {
-        update();
-        hal.scheduler->delay(update_dt_milliseconds);
-    }
-
-    uint32_t num_samples = 0;
-    while (num_samples < 400/update_dt_milliseconds) {
-        // read samples from ins
-        update();
-        // capture sample
-        for (uint8_t k=0; k<num_accels; k++) {
-            Vector3f samp;
-            if(get_delta_velocity(k,samp) && _delta_velocity_dt[k] > 0) {
-                samp /= _delta_velocity_dt[k];
-            } else {
-                samp = get_accel(k);
-            }
-            samples[k][current_orientation] += samp;
-            if (!get_accel_health(k)) {
-                interact->printf_P(PSTR("accel[%u] not healthy"), (unsigned)k);
-                return false;
-            }
-        }
-        hal.scheduler->delay(update_dt_milliseconds);
-        num_samples++;
-    }
-    for (uint8_t k=0; k<num_accels; k++) {
-        samples[k][current_orientation] /= num_samples;
-    }
-
-    return true;
-}
-
 // calibrate_accel - perform accelerometer calibration including providing user
 // instructions and feedback Gauss-Newton accel calibration routines borrowed
 // from Rolfe Schmidt blog post describing the method:
@@ -755,164 +485,36 @@ bool AP_InertialSensor::_collect_samples(
 bool AP_InertialSensor::calibrate_accel(AP_InertialSensor_UserInteract* interact,
                                         float &trim_roll,
                                         float &trim_pitch){
-    return _calibrate_accel_combine(interact, trim_roll, trim_pitch, false);
+    if (!_calibrate_accel_start(interact)){
+        return false;
+    }
+
+    accel_calibrate_step step;
+
+    do{
+        step = _calibrate_accel_update(false);
+
+        if (step == ACCEL_CAL_STEP_IDLE || step == ACCEL_CAL_STEP_DETECT_ORIENTATION
+            || step == ACCEL_CAL_STEP_COLLECT_SAMPLES || step == ACCEL_CAL_STEP_CALIBRATE){
+            continue;
+        }
+
+        if (step == ACCEL_CAL_STEP_SUCCESS){
+            trim_roll = _calibrate_accel_param.trim_roll;
+            trim_pitch = _calibrate_accel_param.trim_pitch;
+
+            return true;
+        }
+
+        break;
+    }while(1);
+
+    return false;
 }
 
 bool AP_InertialSensor::calibrate_accel_auto(AP_InertialSensor_UserInteract* interact,
                                         float &trim_roll,
                                         float &trim_pitch){
-    return _calibrate_accel_combine(interact, trim_roll, trim_pitch, true);
-}
-
-bool AP_InertialSensor::_calibrate_accel_combine(AP_InertialSensor_UserInteract* interact,
-                                        float &trim_roll,
-                                        float &trim_pitch,
-                                        bool is_auto_detect) // have no idea to use function ptr, so...
-{
-    uint8_t num_accels = min(get_accel_count(), INS_MAX_INSTANCES);
-    Vector3f samples[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT];
-    Vector3f new_offsets[INS_MAX_INSTANCES];
-    Vector3f new_scaling[INS_MAX_INSTANCES];
-    Vector3f orig_offset[INS_MAX_INSTANCES];
-    Vector3f orig_scale[INS_MAX_INSTANCES];
-    uint8_t num_ok = 0;
-
-    // exit immediately if calibration is already in progress
-    if (_calibrating) {
-        return false;
-    }
-
-    _calibrating = true;
-
-    /*
-      we do the accel calibration with no board rotation. This avoids
-      having to rotate readings during the calibration
-    */
-    enum Rotation saved_orientation = _board_orientation;
-    _board_orientation = ROTATION_NONE;
-
-    for (uint8_t k=0; k<num_accels; k++) {
-        // backup original offsets and scaling
-        orig_offset[k] = _accel_offset[k].get();
-        orig_scale[k]  = _accel_scale[k].get();
-
-        // clear accelerometer offsets and scaling
-        _accel_offset[k] = Vector3f(0,0,0);
-        _accel_scale[k] = Vector3f(1,1,1);
-    }
-
-    memset(samples, 0, sizeof(samples));
-
-    // capture data from 6 positions
-    detect_orientation orientation = DETECT_ORIENTATION_ERROR;
-    bool side_collected[DETECT_ORIENTATION_SIDE_CNT];
-    memset(side_collected, 0, sizeof(side_collected));
-
-    bool is_need_continue;
-    do {
-        is_need_continue = false;
-
-        if (is_auto_detect){
-            _detect_orientation_auto_pending_notify(interact, side_collected);
-        }
-
-        if (is_auto_detect){
-            orientation = _detect_orientation_auto(interact, orientation);
-        }else {
-            orientation = _detect_orientation_manual(interact, orientation);
-        }
-
-        if (orientation == DETECT_ORIENTATION_ERROR) {
-            goto failed;
-        }
-
-        if (!_collect_samples(interact, num_accels, samples, orientation)){
-            goto failed;
-        }
-
-        if (side_collected[orientation]){
-            interact->printf_P(PSTR("This side had been collected\n"));
-            is_need_continue = true;
-            continue;
-        }
-
-        side_collected[orientation] = true;
-
-        for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
-            if (!side_collected[i]){
-                is_need_continue = true;
-                break;
-            }
-        }
-    }while(is_need_continue);
-
-    // run the calibration routine
-    for (uint8_t k=0; k<num_accels; k++) {
-        if (!_check_sample_range(samples[k], saved_orientation, interact)) {
-            interact->printf_P(PSTR("Insufficient accel range\n"));
-            continue;
-        }
-
-        bool success = _calibrate_accel(samples[k],
-                                        new_offsets[k],
-                                        new_scaling[k],
-                                        _accel_max_abs_offsets[k],
-                                        saved_orientation);
-
-        interact->printf_P(PSTR("Offsets[%u]: %.2f %.2f %.2f\n"),
-                            (unsigned)k,
-                           (double)new_offsets[k].x, (double)new_offsets[k].y, (double)new_offsets[k].z);
-        interact->printf_P(PSTR("Scaling[%u]: %.2f %.2f %.2f\n"),
-                           (unsigned)k,
-                           (double)new_scaling[k].x, (double)new_scaling[k].y, (double)new_scaling[k].z);
-        if (success) num_ok++;
-    }
-
-    if (num_ok == num_accels) {
-        interact->printf_P(PSTR("Calibration successful\n"));
-
-        for (uint8_t k=0; k<num_accels; k++) {
-            // set and save calibration
-            _accel_offset[k].set(new_offsets[k]);
-            _accel_scale[k].set(new_scaling[k]);
-        }
-        for (uint8_t k=num_accels; k<INS_MAX_INSTANCES; k++) {
-            // clear unused accelerometer's scaling and offsets
-            _accel_offset[k] = Vector3f(0,0,0);
-            _accel_scale[k] = Vector3f(0,0,0);
-        }
-        _save_parameters();
-
-        /*
-          calculate the trims as well from primary accels 
-          We use the original board rotation for this sample
-        */
-        Vector3f level_sample = samples[0][0];
-        level_sample.x *= new_scaling[0].x;
-        level_sample.y *= new_scaling[0].y;
-        level_sample.z *= new_scaling[0].z;
-        level_sample -= new_offsets[0];
-        level_sample.rotate(saved_orientation);
-
-        if (!_calculate_trim(level_sample, trim_roll, trim_pitch)) {
-            goto failed;
-        }
-
-        _board_orientation = saved_orientation;
-
-        _calibrating = false;
-        return true;
-    }
-
-failed:
-    interact->printf_P(PSTR("Calibration FAILED\n"));
-    // restore original scaling and offsets
-    for (uint8_t k=0; k<num_accels; k++) {
-        _accel_offset[k].set(orig_offset[k]);
-        _accel_scale[k].set(orig_scale[k]);
-    }
-    _board_orientation = saved_orientation;
-    _calibrating = false;
     return false;
 }
 
@@ -1256,8 +858,10 @@ bool AP_InertialSensor::_check_sample_range(const Vector3f accel_sample[6], enum
         }
     }
     Vector3f range = max_sample - min_sample;
-    interact->printf_P(PSTR("AccelRange: %.1f %.1f %.1f"),
-            (double)range.x, (double)range.y, (double)range.z);
+    if (interact){
+        interact->printf_P(PSTR("AccelRange: %.1f %.1f %.1f"),
+                (double)range.x, (double)range.y, (double)range.z);
+    }
     bool ok = (range.x >= min_range && 
                range.y >= min_range && 
                range.z >= min_range);
@@ -1752,3 +1356,578 @@ Vector3f AP_InertialSensor::get_vibration_levels(uint8_t instance) const
     return vibe;
 }
 #endif
+
+#define CONSTANTS_ONE_G GRAVITY_MSS
+
+AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_manual(void){
+
+    const prog_char_t *msg;
+    AP_InertialSensor_UserInteract* interact = _calibrate_accel_param.interact;
+
+    detect_orientation next_orientation;
+
+    next_orientation = (detect_orientation)(_calibrate_accel_param.detect.orientation + 1);
+    if (next_orientation >= DETECT_ORIENTATION_ERROR){
+        next_orientation = DETECT_ORIENTATION_LEVEL;
+    }
+
+    // display message to user
+    switch ( next_orientation ) {
+        case DETECT_ORIENTATION_LEVEL:
+            msg = PSTR("level");
+            break;
+        case DETECT_ORIENTATION_LEFT:
+            msg = PSTR("on its LEFT side");
+            break;
+        case DETECT_ORIENTATION_RIGHT:
+            msg = PSTR("on its RIGHT side");
+            break;
+        case DETECT_ORIENTATION_NOSE_DOWN:
+            msg = PSTR("nose DOWN");
+            break;
+        case DETECT_ORIENTATION_NOSE_UP:
+            msg = PSTR("nose UP");
+            break;
+        default:    // default added to avoid compiler warning
+        case DETECT_ORIENTATION_BACK:
+            msg = PSTR("on its BACK");
+            break;
+    }
+
+    if (interact){
+        interact->printf_P(
+                PSTR("Place vehicle %S and press any key.\n"), msg);
+
+        // wait for user input
+        if (!interact->blocking_read()) {
+            //No need to use interact->printf_P for an error, blocking_read does this when it fails
+            return DETECT_ORIENTATION_ERROR;
+        }
+    }
+
+    return next_orientation;
+}
+
+AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_auto(void){
+
+    const unsigned ndim = 3;
+
+    bool lenient_still_position = false;
+    float* accel_ema = &_calibrate_accel_param.detect.accel_ema[0];
+    float* accel_disp = &_calibrate_accel_param.detect.accel_disp[0];
+    float       ema_len = 0.5f;             // EMA time constant in seconds
+    const float normal_still_thr = 0.25;        // normal still threshold
+    float       still_thr2 = powf(lenient_still_position ? (normal_still_thr * 3) : normal_still_thr, 2);
+    float       accel_err_thr = 5.0f;           // set accel error threshold to 5m/s^2
+    uint64_t still_time = lenient_still_position ? 1000000 : 1500000;    // still time required in us
+
+    uint64_t t;
+    /* set timeout to 30s */
+    uint64_t timeout = 30000000;
+    uint64_t* t_timeout = &_calibrate_accel_param.detect.t_timeout;
+    uint64_t* t_prev = &_calibrate_accel_param.detect.t_prev;
+    uint64_t* t_still = &_calibrate_accel_param.detect.t_still;
+
+    AP_InertialSensor_UserInteract* interact = _calibrate_accel_param.interact;
+
+    Vector3f samp;
+
+    do {
+
+        samp = get_accel(0);
+        t = hal.scheduler->micros64();
+        float dt = (t - (*t_prev)) / 1000000.0f;
+        *t_prev = t;
+        float w = dt / ema_len;
+
+        for (unsigned i = 0; i < ndim; i++) {
+
+            float di = 0.0f;
+            switch (i) {
+                case 0:
+                    di = samp.x;
+                    break;
+                case 1:
+                    di = samp.y;
+                    break;
+                case 2:
+                    di = samp.z;
+                    break;
+            }
+
+            float d = di - accel_ema[i];
+            accel_ema[i] += d * w;
+            d = d * d;
+            accel_disp[i] = accel_disp[i] * (1.0f - w);
+
+            if (d > still_thr2 * 8.0f) {
+                d = still_thr2 * 8.0f;
+            }
+
+            if (d > accel_disp[i]) {
+                accel_disp[i] = d;
+            }
+        }
+
+        /* still detector with hysteresis */
+        if (accel_disp[0] < still_thr2 &&
+            accel_disp[1] < still_thr2 &&
+            accel_disp[2] < still_thr2) {
+            /* is still now */
+            if (*t_still == 0) {
+                /* first time */
+                if (interact){
+                    interact->printf_P(PSTR("detecting, hold still...\n"));
+                }
+
+                *t_still = t;
+                *t_timeout = t + timeout;
+            } else {
+                /* still since t_still */
+                if (t > *t_still + still_time) {
+                    /* vehicle is still, exit from the loop to detection of its orientation */
+                    break;
+                }
+            }
+        } else if (accel_disp[0] > still_thr2 * 4.0f ||
+               accel_disp[1] > still_thr2 * 4.0f ||
+               accel_disp[2] > still_thr2 * 4.0f) {
+            /* not still, reset still start time */
+            if (*t_still != 0) {
+                if (interact){
+                    interact->printf_P(PSTR("detected motion, hold still...\n"));
+                }
+
+                hal.scheduler->delay(500);
+                *t_still = 0;
+            }
+        }
+
+        if (t > *t_timeout) {
+            return DETECT_ORIENTATION_ERROR;
+        }
+
+        return DETECT_ORIENTATION_DETECTING;
+    }while(0);
+
+    if (fabsf(accel_ema[0] - CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        if (interact){
+            interact->printf_P(PSTR("detected nose up\n"));
+        }
+        return DETECT_ORIENTATION_NOSE_UP;        // [ g, 0, 0 ]
+    }
+
+    if (fabsf(accel_ema[0] + CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        if (interact){
+            interact->printf_P(PSTR("detected nose down\n"));
+        }
+        return DETECT_ORIENTATION_NOSE_DOWN;        // [ -g, 0, 0 ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1] - CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        if (interact){
+            interact->printf_P(PSTR("detected left\n"));
+        }
+        return DETECT_ORIENTATION_LEFT;        // [ 0, g, 0 ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1] + CONSTANTS_ONE_G) < accel_err_thr &&
+        fabsf(accel_ema[2]) < accel_err_thr) {
+        if (interact){
+            interact->printf_P(PSTR("detected right\n"));
+        }
+        return DETECT_ORIENTATION_RIGHT;        // [ 0, -g, 0 ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2] - CONSTANTS_ONE_G) < accel_err_thr) {
+        if (interact){
+            interact->printf_P(PSTR("detected back\n"));
+        }
+        return DETECT_ORIENTATION_BACK;        // [ 0, 0, g ]
+    }
+
+    if (fabsf(accel_ema[0]) < accel_err_thr &&
+        fabsf(accel_ema[1]) < accel_err_thr &&
+        fabsf(accel_ema[2] + CONSTANTS_ONE_G) < accel_err_thr) {
+        if (interact){
+            interact->printf_P(PSTR("detected level\n"));
+        }
+        return DETECT_ORIENTATION_LEVEL;        // [ 0, 0, -g ]
+    }
+
+    if (interact){
+        interact->printf_P(PSTR("ERROR: invalid orientation\n"));
+    }
+
+    return DETECT_ORIENTATION_ERROR;    // Can't detect orientation
+}
+
+void AP_InertialSensor::_detect_orientation_auto_pending_notify(
+    AP_InertialSensor_UserInteract* interact,
+    bool (&side_collected)[DETECT_ORIENTATION_SIDE_CNT]){
+
+    if (interact == NULL){
+        return;
+    }
+
+    for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
+        if (!side_collected[i]){
+            switch (i){
+                case DETECT_ORIENTATION_LEFT:
+                    interact->printf_P(PSTR("Pending: left\n"));
+                break;
+                case DETECT_ORIENTATION_RIGHT:
+                    interact->printf_P(PSTR("Pending: right\n"));
+                break;
+                case DETECT_ORIENTATION_NOSE_UP:
+                    interact->printf_P(PSTR("Pending: nose up\n"));
+                break;
+                case DETECT_ORIENTATION_NOSE_DOWN:
+                    interact->printf_P(PSTR("Pending: nose down\n"));
+                break;
+                case DETECT_ORIENTATION_BACK:
+                    interact->printf_P(PSTR("Pending: back\n"));
+                break;
+                case DETECT_ORIENTATION_LEVEL:
+                    interact->printf_P(PSTR("Pending: level\n"));
+                default:
+                break;
+            }
+
+            break;
+        }
+    }
+}
+
+bool AP_InertialSensor::_capture_samples(
+    AP_InertialSensor_UserInteract* interact,
+    uint8_t num_accels,
+    Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
+    detect_orientation current_orientation){
+    // capture sample
+    for (uint8_t k = 0; k < num_accels; k++) {
+        Vector3f samp;
+        if(get_delta_velocity(k,samp) && _delta_velocity_dt[k] > 0) {
+            samp /= _delta_velocity_dt[k];
+        } else {
+            samp = get_accel(k);
+        }
+        samples[k][current_orientation] += samp;
+
+        if (!get_accel_health(k)) {
+            if (interact){
+                interact->printf_P(PSTR("accel[%u] not healthy"), (unsigned)k);
+            }
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+
+// -1 some error
+// 0 continue update
+// 1 collect done
+int8_t AP_InertialSensor::_collect_samples(bool is_auto_detect){
+
+    AP_InertialSensor_UserInteract* interact = _calibrate_accel_param.interact;
+
+    uint8_t num_accels = _calibrate_accel_param.num_accels;
+    uint32_t &num_samples = _calibrate_accel_param.num_samples;
+    Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT] = _calibrate_accel_param.samples;
+    detect_orientation current_orientation = _calibrate_accel_param.detect.orientation;
+
+    const uint8_t update_dt_milliseconds = (uint8_t)(1000.0f/get_sample_rate()+0.5f);
+
+    bool is_captured;
+
+    // wait 100ms for ins filter to rise
+    if (is_auto_detect){
+        _calibrate_accel_param.collect_samples_wait_us += 5000; // depend on task schedule time
+        if (_calibrate_accel_param.collect_samples_wait_us < 100000){ // 100ms
+            return 0;
+        }
+
+        is_captured = _capture_samples(interact, num_accels, samples, current_orientation);
+        if (is_captured){
+            num_samples++;
+        }
+
+        if (num_samples < 400/update_dt_milliseconds){
+            return 0;
+        }
+    } else{
+        for (uint8_t k=0; k < 100/update_dt_milliseconds; k++) {
+            update();
+            hal.scheduler->delay(update_dt_milliseconds);
+        }
+
+        while (num_samples < 400/update_dt_milliseconds) {
+            // read samples from ins
+            update();
+            // capture sample
+            is_captured = _capture_samples(interact, num_accels, samples, current_orientation);
+            if (is_captured){
+                num_samples++;
+            }
+
+            hal.scheduler->delay(update_dt_milliseconds);
+        }
+    }
+
+    for (uint8_t k = 0; k < num_accels; k++) {
+        samples[k][current_orientation] /= num_samples;
+    }
+
+    return 1;
+}
+
+bool AP_InertialSensor::_calibrate_accel_start(AP_InertialSensor_UserInteract* interact){
+    // exit immediately if calibration is already in progress
+    if (_calibrating) {
+        return false;
+    }
+
+    _calibrating = true;
+
+    memset(&_calibrate_accel_param, 0, sizeof(_calibrate_accel_param));
+
+    _calibrate_accel_param.interact = interact;
+
+    _calibrate_accel_param.num_accels = min(get_accel_count(), INS_MAX_INSTANCES);
+
+    /*
+      we do the accel calibration with no board rotation. This avoids
+      having to rotate readings during the calibration
+    */
+    _calibrate_accel_param.saved_orientation = _board_orientation;
+    _board_orientation = ROTATION_NONE;
+
+    for (uint8_t k = 0; k < _calibrate_accel_param.num_accels; k++) {
+        // backup original offsets and scaling
+        _calibrate_accel_param.orig_offset[k] = _accel_offset[k].get();
+        _calibrate_accel_param.orig_scale[k]  = _accel_scale[k].get();
+
+        // clear accelerometer offsets and scaling
+        _accel_offset[k] = Vector3f(0,0,0);
+        _accel_scale[k] = Vector3f(1,1,1);
+    }
+
+    _calibrate_accel_param.step = ACCEL_CAL_STEP_IDLE;
+
+    _calibrate_accel_param.detect.orientation = DETECT_ORIENTATION_ERROR;
+
+    return true;
+}
+
+AP_InertialSensor::accel_calibrate_step AP_InertialSensor::_calibrate_accel_update(bool is_auto_detect){
+
+    AP_InertialSensor_UserInteract* interact = _calibrate_accel_param.interact;
+    accel_calibrate_step cur_step = _calibrate_accel_param.step;
+
+    switch (cur_step){
+        case ACCEL_CAL_STEP_IDLE:
+        {
+            _calibrate_accel_param.detect.accel_ema[0] = 0.0f;
+            _calibrate_accel_param.detect.accel_ema[1] = 0.0f;
+            _calibrate_accel_param.detect.accel_ema[2] = 0.0f;
+
+            _calibrate_accel_param.detect.accel_disp[0] = 0.0f;
+            _calibrate_accel_param.detect.accel_disp[1] = 0.0f;
+            _calibrate_accel_param.detect.accel_disp[2] = 0.0f;
+
+            uint64_t t_start = hal.scheduler->micros64();
+            _calibrate_accel_param.detect.t_prev = t_start;
+            _calibrate_accel_param.detect.t_still = 0;
+            _calibrate_accel_param.detect.t_timeout = t_start + 30000000; // 30s
+
+            if (is_auto_detect){
+                _detect_orientation_auto_pending_notify(
+                    _calibrate_accel_param.interact,
+                    _calibrate_accel_param.side_collected);
+            }
+
+            _calibrate_accel_param.num_samples = 0;
+
+            _calibrate_accel_param.step = ACCEL_CAL_STEP_DETECT_ORIENTATION;
+        }
+        break;
+        case ACCEL_CAL_STEP_DETECT_ORIENTATION:
+        {
+            detect_orientation orientation;
+            if (is_auto_detect){
+                orientation = _detect_orientation_auto();
+            }else{
+                orientation = _detect_orientation_manual();
+            }
+
+            if (orientation == DETECT_ORIENTATION_DETECTING){
+            }else if (orientation == DETECT_ORIENTATION_ERROR){
+                _calibrate_accel_param.step = ACCEL_CAL_STEP_FAILED;
+            }else{
+                if (_calibrate_accel_param.side_collected[orientation]){
+                    _calibrate_accel_param.step = ACCEL_CAL_STEP_IDLE;
+                } else {
+                    _calibrate_accel_param.detect.orientation = orientation;
+                    _calibrate_accel_param.step = ACCEL_CAL_STEP_COLLECT_SAMPLES;
+                }
+            }
+        }
+        break;
+        case ACCEL_CAL_STEP_COLLECT_SAMPLES:
+        {
+            int8_t is_done = _collect_samples(is_auto_detect);
+            if (is_done < 0){
+                _calibrate_accel_param.step = ACCEL_CAL_STEP_FAILED;
+            } else if (is_done > 0){
+                _calibrate_accel_param.side_collected[_calibrate_accel_param.detect.orientation] = true;
+
+                for (uint8_t i = 0; i < DETECT_ORIENTATION_SIDE_CNT; i++){
+                    if (!_calibrate_accel_param.side_collected[i]){
+                        _calibrate_accel_param.step = ACCEL_CAL_STEP_IDLE; // some sides not collected
+                    }
+                }
+
+                if (_calibrate_accel_param.step != ACCEL_CAL_STEP_IDLE){ // all side collected
+                    _calibrate_accel_param.step = ACCEL_CAL_STEP_CALIBRATE;
+                }
+            }
+        }
+        break;
+        case ACCEL_CAL_STEP_CALIBRATE:
+        {
+            if (_calibrate_accel_calc()){
+                _calibrate_accel_param.step = ACCEL_CAL_STEP_SUCCESS;
+            }else {
+                _calibrate_accel_param.step = ACCEL_CAL_STEP_FAILED;
+            }
+        }
+        break;
+        case ACCEL_CAL_STEP_SUCCESS:
+        {
+            if (interact){
+                interact->printf_P(PSTR("Calibration successful\n"));
+            }
+
+            _board_orientation = _calibrate_accel_param.saved_orientation;
+            _calibrating = false;
+
+            _calibrate_accel_param.step = ACCEL_CAL_STEP_WAIT_START;
+        }
+        break;
+        case ACCEL_CAL_STEP_FAILED:
+        {
+            if (interact){
+                interact->printf_P(PSTR("Calibration FAILED\n"));
+            }
+
+            // restore original scaling and offsets
+            for (uint8_t k = 0; k < _calibrate_accel_param.num_accels; k++) {
+                _accel_offset[k].set(_calibrate_accel_param.orig_offset[k]);
+                _accel_scale[k].set(_calibrate_accel_param.orig_scale[k]);
+            }
+            _board_orientation = _calibrate_accel_param.saved_orientation;
+            _calibrating = false;
+
+            _calibrate_accel_param.step = ACCEL_CAL_STEP_WAIT_START;
+        } // return, so no break
+        default:
+        break;
+    }
+
+    return cur_step;
+}
+
+// 3 steps
+// 1 detect orientation
+// 2 collect samples
+// until collected 6 orientations, run the third step
+// 3 calibrate
+// void AP_InertialSensor::calibrate_accel_update(void){}
+
+bool AP_InertialSensor::_calibrate_accel_calc(void) // have no idea to use function ptr, so...
+{
+    AP_InertialSensor_UserInteract* interact = _calibrate_accel_param.interact;
+    uint8_t &num_accels = _calibrate_accel_param.num_accels;
+    Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT] =
+        _calibrate_accel_param.samples;
+    Vector3f new_offsets[INS_MAX_INSTANCES];
+    Vector3f new_scaling[INS_MAX_INSTANCES];
+    uint8_t num_ok = 0;
+    Rotation &saved_orientation = _calibrate_accel_param.saved_orientation;
+
+    float &trim_roll = _calibrate_accel_param.trim_roll;
+    float &trim_pitch = _calibrate_accel_param.trim_pitch;
+
+
+    // run the calibration routine
+    for (uint8_t k = 0; k < num_accels; k++) {
+        if (!_check_sample_range(samples[k], saved_orientation, interact)) {
+            if (interact){
+                interact->printf_P(PSTR("Insufficient accel range\n"));
+            }
+            continue;
+        }
+
+        bool success = _calibrate_accel(samples[k],
+                                        new_offsets[k],
+                                        new_scaling[k],
+                                        _accel_max_abs_offsets[k],
+                                        saved_orientation);
+
+        if (interact){
+            interact->printf_P(PSTR("Offsets[%u]: %.2f %.2f %.2f\n"),
+                                (unsigned)k,
+                               (double)new_offsets[k].x, (double)new_offsets[k].y, (double)new_offsets[k].z);
+            interact->printf_P(PSTR("Scaling[%u]: %.2f %.2f %.2f\n"),
+                               (unsigned)k,
+                               (double)new_scaling[k].x, (double)new_scaling[k].y, (double)new_scaling[k].z);
+        }
+        if (success) num_ok++;
+    }
+
+    if (num_ok == num_accels) {
+        for (uint8_t k = 0; k < num_accels; k++) {
+            // set and save calibration
+            _accel_offset[k].set(new_offsets[k]);
+            _accel_scale[k].set(new_scaling[k]);
+        }
+        for (uint8_t k = num_accels; k < INS_MAX_INSTANCES; k++) {
+            // clear unused accelerometer's scaling and offsets
+            _accel_offset[k] = Vector3f(0,0,0);
+            _accel_scale[k] = Vector3f(0,0,0);
+        }
+        _save_parameters();
+
+        /*
+          calculate the trims as well from primary accels 
+          We use the original board rotation for this sample
+        */
+        Vector3f level_sample = samples[0][0];
+        level_sample.x *= new_scaling[0].x;
+        level_sample.y *= new_scaling[0].y;
+        level_sample.z *= new_scaling[0].z;
+        level_sample -= new_offsets[0];
+        level_sample.rotate(saved_orientation);
+
+        if (!_calculate_trim(level_sample, trim_roll, trim_pitch)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+

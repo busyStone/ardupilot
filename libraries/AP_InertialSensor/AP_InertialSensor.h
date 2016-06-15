@@ -75,7 +75,18 @@ public:
         DETECT_ORIENTATION_NOSE_DOWN,
         DETECT_ORIENTATION_NOSE_UP,
         DETECT_ORIENTATION_BACK,
-        DETECT_ORIENTATION_ERROR
+        DETECT_ORIENTATION_ERROR,
+        DETECT_ORIENTATION_DETECTING
+    };
+
+    enum accel_calibrate_step {
+        ACCEL_CAL_STEP_WAIT_START,
+        ACCEL_CAL_STEP_IDLE,
+        ACCEL_CAL_STEP_DETECT_ORIENTATION,
+        ACCEL_CAL_STEP_COLLECT_SAMPLES,
+        ACCEL_CAL_STEP_CALIBRATE,
+        ACCEL_CAL_STEP_SUCCESS,
+        ACCEL_CAL_STEP_FAILED
     };
 
     /// Perform startup initialisation.
@@ -278,26 +289,6 @@ private:
     // save parameters to eeprom
     void  _save_parameters();
 
-    void _detect_orientation_auto_pending_notify(
-        AP_InertialSensor_UserInteract* interact,
-        bool (&side_collected)[DETECT_ORIENTATION_SIDE_CNT]);
-    bool _calibrate_accel_combine(AP_InertialSensor_UserInteract* interact,
-                                  float &trim_roll,
-                                  float &trim_pitch,
-                                  bool is_auto_detect);
-    detect_orientation _detect_orientation_manual(
-        AP_InertialSensor_UserInteract* interact,
-        detect_orientation last_orientation);
-    detect_orientation _detect_orientation_auto(
-        AP_InertialSensor_UserInteract* interact,
-        detect_orientation last_orientation);
-
-    bool _collect_samples(
-        AP_InertialSensor_UserInteract* interact,
-        uint8_t num_accels,
-        Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
-        detect_orientation current_orientation);
-
     // backend objects
     AP_InertialSensor_Backend *_backends[INS_MAX_BACKENDS];
 
@@ -399,6 +390,56 @@ private:
     } _hil {};
 
     DataFlash_Class *_dataflash;
+
+    struct detect_orientation_s{
+        uint64_t t_start;
+        uint64_t t_prev;
+        uint64_t t_still;
+        uint64_t t_timeout;
+
+        float accel_ema[3]; // exponential moving average of accel
+        float accel_disp[3]; // max-hold dispersion of accel
+
+        detect_orientation orientation;
+    };
+
+    struct calibrate_accel_s {
+        AP_InertialSensor_UserInteract* interact;
+
+        Rotation saved_orientation;
+
+        Vector3f orig_offset[INS_MAX_INSTANCES];
+        Vector3f orig_scale[INS_MAX_INSTANCES];
+        Vector3f samples[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT];
+        uint32_t num_samples;
+        uint32_t collect_samples_wait_us;
+
+        detect_orientation_s detect;
+        accel_calibrate_step step;
+
+        uint8_t num_accels;
+        bool side_collected[DETECT_ORIENTATION_SIDE_CNT];
+
+        float trim_roll;
+        float trim_pitch;
+    };
+
+    calibrate_accel_s _calibrate_accel_param;
+
+    void _detect_orientation_auto_pending_notify(
+        AP_InertialSensor_UserInteract* interact,
+        bool (&side_collected)[DETECT_ORIENTATION_SIDE_CNT]);
+    detect_orientation _detect_orientation_manual(void);
+    detect_orientation _detect_orientation_auto(void);
+    bool _capture_samples(
+        AP_InertialSensor_UserInteract* interact,
+        uint8_t num_accels,
+        Vector3f (&samples)[INS_MAX_INSTANCES][DETECT_ORIENTATION_SIDE_CNT],
+        detect_orientation current_orientation);
+    int8_t _collect_samples(bool is_auto_detect);
+    bool _calibrate_accel_start(AP_InertialSensor_UserInteract* interact);
+    accel_calibrate_step _calibrate_accel_update(bool is_auto_detect);
+    bool _calibrate_accel_calc(void);
 };
 
 #include "AP_InertialSensor_Backend.h"
