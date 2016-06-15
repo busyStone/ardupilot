@@ -61,8 +61,12 @@ void AP_InertialSensor_UserInteract_MAVLink::_printf_P(const prog_char* fmt, ...
         return;
     }
 
+    if (_gcs_send == NULL){
+        return;
+    }
+
     for (uint8_t i=0; i<MAVLINK_COMM_NUM_BUFFERS; i++) {
-        if (_gcs_send != NULL && _gcs_send[i].initialised) {
+        if (_gcs_send[i].initialised) {
             _send_text(&_gcs_send[i], msg, false);
         }
     }
