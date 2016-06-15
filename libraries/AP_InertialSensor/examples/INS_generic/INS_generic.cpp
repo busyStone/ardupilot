@@ -74,6 +74,7 @@ void setup(void)
 void loop(void)
 {
     int16_t user_input;
+    float trim_roll, trim_pitch;
 
     hal.console->println();
     hal.console->println_P(PSTR(
@@ -86,7 +87,11 @@ void loop(void)
 
     // wait for user input
     while( !hal.console->available() ) {
+        ins.update();
+
         hal.scheduler->delay(20);
+
+        ins.calibrate_accel_update(trim_roll, trim_pitch);
     }
 
     // read in user input
@@ -112,6 +117,7 @@ void loop(void)
     }
 }
 
+AP_InertialSensor_UserInteractStream* interact;
 static void run_calibration()
 {
     float roll_trim, pitch_trim;
@@ -120,9 +126,9 @@ static void run_calibration()
         hal.console->read();
     }
 
-
-    AP_InertialSensor_UserInteractStream interact(hal.console);
-    ins.calibrate_accel(&interact, roll_trim, pitch_trim);
+    interact = new AP_InertialSensor_UserInteractStream(hal.console);
+    // ins.calibrate_accel(interact, roll_trim, pitch_trim);
+    ins.calibrate_accel_auto(interact);
 }
 
 static void display_offsets_and_scaling()
