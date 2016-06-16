@@ -1683,6 +1683,8 @@ int8_t AP_InertialSensor::_collect_samples(bool is_auto_detect){
         is_captured = _capture_samples(interact, num_accels, samples, current_orientation);
         if (is_captured){
             num_samples++;
+        }else{
+            return -1; // only not healthy will return false
         }
 
         if (num_samples < 400/update_dt_milliseconds){
@@ -1701,6 +1703,8 @@ int8_t AP_InertialSensor::_collect_samples(bool is_auto_detect){
             is_captured = _capture_samples(interact, num_accels, samples, current_orientation);
             if (is_captured){
                 num_samples++;
+            }else{
+                return -1; // only not healthy will return false
             }
 
             hal.scheduler->delay(update_dt_milliseconds);
