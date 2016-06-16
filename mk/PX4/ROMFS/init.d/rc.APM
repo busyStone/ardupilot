@@ -86,8 +86,8 @@ else
       set deviceC /dev/ttyS1
       set deviceD /dev/ttyS2
    else
-      set deviceC /dev/ttyS0
-      set deviceD /dev/ttyS1
+      set deviceC /dev/ttyS1
+      set deviceD /dev/ttyS2
    fi
 fi
 
