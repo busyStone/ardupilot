@@ -1498,7 +1498,7 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
             if (*t_still == 0) {
                 /* first time */
                 if (interact){
-                    interact->printf_P(PSTR("detecting, hold still...\n"));
+                    interact->printf_P(PSTR("detecting, hold still..."));
                 }
 
                 *t_still = t;
@@ -1516,7 +1516,7 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
             /* not still, reset still start time */
             if (*t_still != 0) {
                 if (interact){
-                    interact->printf_P(PSTR("detected motion, hold still...\n"));
+                    interact->printf_P(PSTR("detected motion, hold still..."));
                 }
 
                 hal.scheduler->delay(500);
@@ -1535,7 +1535,7 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
         fabsf(accel_ema[1]) < accel_err_thr &&
         fabsf(accel_ema[2]) < accel_err_thr) {
         if (interact){
-            interact->printf_P(PSTR("detected nose up\n"));
+            interact->printf_P(PSTR("detected nose up"));
         }
         return DETECT_ORIENTATION_NOSE_UP;        // [ g, 0, 0 ]
     }
@@ -1544,7 +1544,7 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
         fabsf(accel_ema[1]) < accel_err_thr &&
         fabsf(accel_ema[2]) < accel_err_thr) {
         if (interact){
-            interact->printf_P(PSTR("detected nose down\n"));
+            interact->printf_P(PSTR("detected nose down"));
         }
         return DETECT_ORIENTATION_NOSE_DOWN;        // [ -g, 0, 0 ]
     }
@@ -1553,7 +1553,7 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
         fabsf(accel_ema[1] - CONSTANTS_ONE_G) < accel_err_thr &&
         fabsf(accel_ema[2]) < accel_err_thr) {
         if (interact){
-            interact->printf_P(PSTR("detected left\n"));
+            interact->printf_P(PSTR("detected left"));
         }
         return DETECT_ORIENTATION_LEFT;        // [ 0, g, 0 ]
     }
@@ -1562,7 +1562,7 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
         fabsf(accel_ema[1] + CONSTANTS_ONE_G) < accel_err_thr &&
         fabsf(accel_ema[2]) < accel_err_thr) {
         if (interact){
-            interact->printf_P(PSTR("detected right\n"));
+            interact->printf_P(PSTR("detected right"));
         }
         return DETECT_ORIENTATION_RIGHT;        // [ 0, -g, 0 ]
     }
@@ -1571,7 +1571,7 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
         fabsf(accel_ema[1]) < accel_err_thr &&
         fabsf(accel_ema[2] - CONSTANTS_ONE_G) < accel_err_thr) {
         if (interact){
-            interact->printf_P(PSTR("detected back\n"));
+            interact->printf_P(PSTR("detected back"));
         }
         return DETECT_ORIENTATION_BACK;        // [ 0, 0, g ]
     }
@@ -1580,13 +1580,13 @@ AP_InertialSensor::detect_orientation AP_InertialSensor::_detect_orientation_aut
         fabsf(accel_ema[1]) < accel_err_thr &&
         fabsf(accel_ema[2] + CONSTANTS_ONE_G) < accel_err_thr) {
         if (interact){
-            interact->printf_P(PSTR("detected level\n"));
+            interact->printf_P(PSTR("detected level"));
         }
         return DETECT_ORIENTATION_LEVEL;        // [ 0, 0, -g ]
     }
 
     if (interact){
-        interact->printf_P(PSTR("ERROR: invalid orientation\n"));
+        interact->printf_P(PSTR("ERROR: invalid orientation"));
     }
 
     return DETECT_ORIENTATION_ERROR;    // Can't detect orientation
@@ -1604,22 +1604,22 @@ void AP_InertialSensor::_detect_orientation_auto_pending_notify(
         if (!side_collected[i]){
             switch (i){
                 case DETECT_ORIENTATION_LEFT:
-                    interact->printf_P(PSTR("Pending: left\n"));
+                    interact->printf_P(PSTR("Pending: left"));
                 break;
                 case DETECT_ORIENTATION_RIGHT:
-                    interact->printf_P(PSTR("Pending: right\n"));
+                    interact->printf_P(PSTR("Pending: right"));
                 break;
                 case DETECT_ORIENTATION_NOSE_UP:
-                    interact->printf_P(PSTR("Pending: nose up\n"));
+                    interact->printf_P(PSTR("Pending: nose up"));
                 break;
                 case DETECT_ORIENTATION_NOSE_DOWN:
-                    interact->printf_P(PSTR("Pending: nose down\n"));
+                    interact->printf_P(PSTR("Pending: nose down"));
                 break;
                 case DETECT_ORIENTATION_BACK:
-                    interact->printf_P(PSTR("Pending: back\n"));
+                    interact->printf_P(PSTR("Pending: back"));
                 break;
                 case DETECT_ORIENTATION_LEVEL:
-                    interact->printf_P(PSTR("Pending: level\n"));
+                    interact->printf_P(PSTR("Pending: level"));
                 default:
                 break;
             }
@@ -1842,7 +1842,7 @@ AP_InertialSensor::accel_calibrate_step AP_InertialSensor::_calibrate_accel_upda
         case ACCEL_CAL_STEP_SUCCESS:
         {
             if (interact){
-                interact->printf_P(PSTR("Calibration successful\n"));
+                interact->printf_P(PSTR("Calibration successful"));
             }
 
             _board_orientation = _calibrate_accel_param.saved_orientation;
@@ -1854,7 +1854,7 @@ AP_InertialSensor::accel_calibrate_step AP_InertialSensor::_calibrate_accel_upda
         case ACCEL_CAL_STEP_FAILED:
         {
             if (interact){
-                interact->printf_P(PSTR("Calibration FAILED\n"));
+                interact->printf_P(PSTR("Calibration FAILED"));
             }
 
             // restore original scaling and offsets
