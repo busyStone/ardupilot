@@ -42,6 +42,9 @@
     #define EPM_ENABLED           DISABLED            // disable epm cargo gripper to save 500bytes of flash
     #define OPTFLOW               DISABLED            // disable optical flow sensor to save 5K of flash space
     #define FRSKY_TELEM_ENABLED   DISABLED            // disable FRSky telemetry
+
+   // params
+   #define THR_MID_DEFAULT 455
 #endif
 
 // features below are disabled by default on all boards
