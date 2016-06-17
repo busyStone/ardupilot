@@ -1178,6 +1178,7 @@ void GCS_MAVLINK::send_statustext_all(gcs_severity severity, const prog_char_t *
             mavlink_channel_t chan = (mavlink_channel_t)(MAVLINK_COMM_0+i);
             if (comm_get_txspace(chan) >= MAVLINK_NUM_NON_PAYLOAD_BYTES + MAVLINK_MSG_ID_STATUSTEXT_LEN) {
                 char msg2[50];
+                memset(msg2, 0, sizeof(msg2));
                 va_list arg_list;
                 va_start(arg_list, fmt);
                 hal.util->vsnprintf_P((char *)msg2, sizeof(msg2), fmt, arg_list);
