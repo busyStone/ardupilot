@@ -385,19 +385,19 @@ else
             echo "no found MPU6000"
         fi
 
-        if l3gd20 -R 8 start
-        then
-            echo "l3gd20 started OK"
-        else
-            sh /etc/init.d/rc.error
-        fi
+        #if l3gd20 -R 8 start
+        #then
+        #    echo "l3gd20 started OK"
+        #else
+        #    sh /etc/init.d/rc.error
+        #fi
 
-        if lsm303d -R 8 start
-        then
-            echo "lsm303d started OK"
-        else
-            sh /etc/init.d/rc.error
-        fi
+        #if lsm303d -R 8 start
+        #then
+        #    echo "lsm303d started OK"
+        #else
+        #    sh /etc/init.d/rc.error
+        #fi
     fi
 fi
 
