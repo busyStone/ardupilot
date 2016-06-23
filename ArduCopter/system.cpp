@@ -106,6 +106,8 @@ void Copter::init_ardupilot()
     // load parameters from EEPROM
     load_parameters();
 
+    load_parameters_user();
+
     BoardConfig.init();
 
     // initialise serial port

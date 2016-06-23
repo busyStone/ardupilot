@@ -978,6 +978,9 @@ private:
     void check_switchs_user(void);
     bool _check_switchs_cal(check_switchs_cal_s* param, int16_t radio_in);
 
+    void load_parameters_user(void);
+    void set_parameters_user(char* key, float value);
+
 public:
     void mavlink_delay_cb();
     void failsafe_check();
