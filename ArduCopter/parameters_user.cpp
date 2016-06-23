@@ -9,6 +9,8 @@ void Copter::load_parameters_user(void){
     // rc2 reverse
     // thr_mid
     // failsafe
+    // compass cal fit
+    // compass orient
 #ifdef CONFIG_ARCH_BOARD_PX4FMU_V3
     set_parameters_user((char*)"FRAME", 1.0f); // x frame
 
@@ -31,6 +33,12 @@ void Copter::load_parameters_user(void){
     set_parameters_user((char*)"FS_EKF_ACTION", 1.0f); // land
     set_parameters_user((char*)"FS_GCS_ENABLE", 1.0f); // always RTL
     set_parameters_user((char*)"FS_THR_ENABLE", 1.0f); // always RTL
+
+    set_parameters_user((char*)"COMPASS_CAL_FIT", 10.0f);
+    set_parameters_user((char*)"COMPASS_ORIENT", 4.0f);
+
+    set_parameters_user((char*)"PHLD_BRAKE_ANGLE", 4200);
+    set_parameters_user((char*)"PHLD_BRAKE_RATE", 11);
 #endif
 }
 
