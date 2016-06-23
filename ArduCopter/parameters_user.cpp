@@ -19,6 +19,7 @@ void Copter::load_parameters_user(void){
     set_parameters_user((char*)"FLTMODE6", 0.0f); // stabilize
 
     set_parameters_user((char*)"BATT_MONITOR", 3.0f); // voltage only
+    set_parameters_user((char*)"BATT_VOLT_PIN", 2.0f); // Pixhawk
     set_parameters_user((char*)"BATT_VOLT_MULT", 4.187161f);
 
     set_parameters_user((char*)"RSSI_PIN", 11.0f);
