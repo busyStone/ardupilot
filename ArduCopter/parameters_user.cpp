@@ -36,7 +36,7 @@ void Copter::load_parameters_user(void){
     set_parameters_user((char*)"FS_THR_ENABLE", 1.0f); // always RTL
 
     set_parameters_user((char*)"COMPASS_CAL_FIT", 10.0f);
-    set_parameters_user((char*)"COMPASS_ORIENT", 4.0f);
+    set_parameters_user((char*)"COMPASS_ORIENT", 16.0f);
 
     set_parameters_user((char*)"PHLD_BRAKE_ANGLE", 4200);
     set_parameters_user((char*)"PHLD_BRAKE_RATE", 11);
