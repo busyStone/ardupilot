@@ -46,8 +46,8 @@ void Copter::load_parameters_user(void){
     set_parameters_user((char*)"COMPASS_ORIENT", 16.0f);
     set_parameters_user((char*)"SERIAL2_BAUD", 115);
 
-    set_parameters_user((char*)"RC3_DZ", 80);
-    set_parameters_user((char*)"RC4_DZ", 80);
+    set_parameters_user((char*)"RC1_DZ", 80);
+    set_parameters_user((char*)"RC2_DZ", 80);
 
 #endif
 }
