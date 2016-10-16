@@ -11,6 +11,8 @@ void Copter::load_parameters_user(void){
     // failsafe
     // compass cal fit
     // compass orient
+    // serial2 baund
+    // rc3 rc4 dead zone
 #ifdef CONFIG_ARCH_BOARD_PX4FMU_V3
     set_parameters_user((char*)"FRAME", 1.0f); // x frame
 
@@ -36,10 +38,17 @@ void Copter::load_parameters_user(void){
     set_parameters_user((char*)"FS_THR_ENABLE", 1.0f); // always RTL
 
     set_parameters_user((char*)"COMPASS_CAL_FIT", 16.0f);
-    set_parameters_user((char*)"COMPASS_ORIENT", 16.0f);
 
     set_parameters_user((char*)"PHLD_BRAKE_ANGLE", 4200);
     set_parameters_user((char*)"PHLD_BRAKE_RATE", 11);
+
+    // incompatible changes frome 1.0.2.7
+    set_parameters_user((char*)"COMPASS_ORIENT", 16.0f);
+    set_parameters_user((char*)"SERIAL2_BAUD", 115);
+
+    set_parameters_user((char*)"RC3_DZ", 80);
+    set_parameters_user((char*)"RC4_DZ", 80);
+
 #endif
 }
 
