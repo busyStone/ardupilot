@@ -1353,6 +1353,15 @@ void GCS_MAVLINK::handleMessage(mavlink_message_t* msg)
             }
             break;
 
+        case MAV_CMD_GET_HOME_POSITION:
+            if (copter.ap.home_state != HOME_UNSET) {
+                send_home(copter.ahrs.get_home());
+                result = MAV_RESULT_ACCEPTED;
+            } else {
+                result = MAV_RESULT_FAILED;
+            }
+            break;
+
         case MAV_CMD_DO_SET_SERVO:
             if (copter.ServoRelayEvents.do_set_servo(packet.param1, packet.param2)) {
                 result = MAV_RESULT_ACCEPTED;
@@ -1817,6 +1826,30 @@ void GCS_MAVLINK::handleMessage(mavlink_message_t* msg)
         // send message to Notify
         AP_Notify::handle_led_control(msg);
         break;
+
+    case MAVLINK_MSG_ID_SET_HOME_POSITION:
+    {
+        mavlink_set_home_position_t packet;
+        mavlink_msg_set_home_position_decode(msg, &packet);
+        if((packet.latitude == 0) && (packet.longitude == 0) && (packet.altitude == 0)) {
+            copter.set_home_to_current_location_and_lock();
+        } else {
+            // sanity check location
+            if (!check_latlng(packet.latitude, packet.longitude)) {
+                break;
+            }
+            Location new_home_loc;
+            new_home_loc.lat = packet.latitude;
+            new_home_loc.lng = packet.longitude;
+            new_home_loc.alt = packet.altitude / 10;
+            if (copter.far_from_EKF_origin(new_home_loc)) {
+                break;
+            }
+            copter.set_home_and_lock(new_home_loc);
+        }
+        break;
+    }
+
 
     }     // end switch
 } // end handle mavlink
