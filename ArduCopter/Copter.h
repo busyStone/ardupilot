@@ -1,7 +1,7 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#define THISFIRMWARE "SkyBorne:Copter v2.1.0.dev.1"
-#define FIRMWARE_VERSION 2,1,0,FIRMWARE_VERSION_TYPE_DEV + 1
+#define THISFIRMWARE "SkyBorne:Copter v2.2.0.beta.1"
+#define FIRMWARE_VERSION 2,2,0,FIRMWARE_VERSION_TYPE_BETA + 1
 
 /*
    This program is free software: you can redistribute it and/or modify
